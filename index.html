@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konseling Karier Terpadu</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Konfigurasi Tema Tailwind Kustom (Navy, Gold, Pink, Cream)
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            base: '#F3F3E0',     /* Background utama cerah */
+                            navy: '#183B4E',     /* Warna header & teks utama */
+                            blue: '#27548A',     /* Warna sekunder */
+                            gold: '#DDA853',     /* Warna aksen mewah */
+                            pink: '#FF5A8D',     /* Aksen PINK estetik */
+                            pinkdark: '#E04274', /* Pink saat di-hover */
+                            text: '#152a3b',     /* Teks gelap */
+                            surface: '#ffffff',  /* Card background */
+                        }
+                    },
+                    boxShadow: {
+                        'elegant': '0 18px 32px rgba(24,59,78,0.08)', /* Shadow Navy transparan */
+                    }
+                }
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="./css/variables.css">
+    <link rel="stylesheet" href="./css/base.css">
+    <link rel="stylesheet" href="./css/layout.css">
+    <link rel="stylesheet" href="./css/components.css">
+    <link rel="stylesheet" href="./css/animations.css">
+    <link rel="stylesheet" href="./css/pages.css">
+</head>
+<body class="bg-brand-base text-brand-text antialiased min-h-screen flex flex-col">
+
+    <main id="app" class="flex-grow flex flex-col relative w-full h-full overflow-x-hidden">
+        <div class="flex items-center justify-center min-h-screen w-full">
+            <div class="flex flex-col items-center gap-3">
+                <i class="ph ph-spinner animate-spin text-4xl text-brand-pink"></i>
+                <p class="text-brand-navy font-medium tracking-wide">Memuat Sistem...</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>
