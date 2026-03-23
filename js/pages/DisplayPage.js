@@ -14,11 +14,10 @@ export async function renderDisplayPage(container) {
 
             <header class="flex justify-between items-end px-10 py-6 border-b border-white/10 shrink-0 bg-[#0B1A26]/80 backdrop-blur-md z-10">
                 <div class="flex items-center gap-6">
-                    <div class="w-16 h-16 bg-gradient-to-br from-brand-gold to-yellow-600 rounded-2xl shadow-[0_0_30px_rgba(221,168,83,0.3)] flex items-center justify-center">
-                        <i class="ph ph-briefcase text-3xl text-white"></i>
-                    </div>
+                    <!-- Ganti dengan path logo Anda -->
+                    <img src="assets/images/logo-white.png" alt="Logo" class="h-12">
                     <div>
-                        <h1 class="text-4xl font-black tracking-wide text-white mb-1">Status <span class="text-brand-gold">Konseling</span></h1>
+                        <h1 class="text-4xl font-black tracking-wide text-white">Status <span class="text-brand-gold">Konseling</span></h1>
                         <p class="text-brand-pink font-semibold tracking-widest uppercase text-sm" id="tanggal-hari-ini">Memuat Jadwal...</p>
                     </div>
                 </div>

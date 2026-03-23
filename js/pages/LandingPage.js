@@ -52,13 +52,15 @@ export async function renderLandingPage(container) {
                 <div class="absolute bottom-0 left-0 w-64 h-64 bg-brand-pink rounded-full blur-[100px] opacity-10 pointer-events-none"></div>
 
                 <div class="bg-brand-navy px-8 py-12 text-center relative overflow-hidden">
-                    <div class="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
-                    <h1 class="text-3xl md:text-4xl font-bold mb-3 text-white relative z-10 tracking-tight">Konseling <span class="text-brand-gold">Karier</span></h1>
-                    <p class="text-brand-base/80 text-sm md:text-base max-w-lg mx-auto relative z-10 font-light">Lengkapi formulir ini untuk mendapatkan sesi khusus evaluasi CV dan konsultasi perjalanan karier Anda.</p>
+                    <div class="absolute inset-0 opacity-5 bg-[url('assets/images/pattern.svg')]"></div>
+                    <!-- Ganti dengan path logo Anda -->
+                    <img src="assets/images/logo-white.png" alt="Logo Acara" class="h-12 mx-auto mb-4 relative z-10">
+                    <h1 class="text-3xl md:text-4xl font-bold text-white relative z-10 tracking-tight">Formulir Pendaftaran Konseling</h1>
+                    <p class="text-brand-base/80 text-sm md:text-base max-w-lg mx-auto relative z-10 font-light mt-2">Dapatkan sesi khusus evaluasi CV dan konsultasi perjalanan karier Anda.</p>
                 </div>
 
                 <div class="p-8 sm:p-12 relative z-10">
-                    <form id="form-pendaftaran" class="space-y-6">
+                    <form id="form-pendaftaran" class="space-y-6" novalidate>
                         
                         <div class="space-y-6 pb-6 border-b border-gray-100">
                             <h3 class="text-lg font-bold text-brand-blue flex items-center gap-2"><i class="ph ph-user-circle"></i> Informasi Pribadi</h3>
@@ -200,6 +202,10 @@ export async function renderLandingPage(container) {
                 </div>
             </div>
         </div>
+
+        <!-- Toast Notification Container -->
+        <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-2">
+        </div>
     `;
 
     // 4. Attach Event Listeners
@@ -293,7 +299,7 @@ async function handleFormSubmit(event) {
                </div>`;
 
         container.innerHTML = `
-            <div class="flex-grow flex items-center justify-center p-6 animate-fade-in-up">
+            <div class="flex-grow flex items-center justify-center p-6 animate-fade-in-up w-full">
                 <div class="max-w-lg w-full text-center bg-brand-surface p-10 sm:p-12 rounded-[24px] shadow-elegant border border-white/60">
                     <div class="bg-brand-base text-brand-pink w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-sm">
                         <i class="ph ph-confetti text-5xl"></i>
@@ -308,10 +314,34 @@ async function handleFormSubmit(event) {
             </div>
         `;
     } else {
-        alert("Terjadi kesalahan sistem: " + result.message);
+        showToast("Terjadi kesalahan sistem: " + result.message, 'error');
         btnSubmit.disabled = false;
         btnSubmit.innerHTML = originalBtnContent;
         btnSubmit.classList.replace('bg-gray-400', 'bg-brand-pink');
         btnSubmit.classList.add('hover:-translate-y-1', 'hover:bg-brand-pinkdark', 'shadow-[0_8px_24px_rgba(255,90,141,0.3)]');
     }
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    const icon = type === 'success' ? 'ph-check-circle' : 'ph-x-circle';
+    const colors = type === 'success' 
+        ? 'bg-green-500 border-green-600' 
+        : 'bg-red-500 border-red-600';
+
+    toast.className = `flex items-center gap-3 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg border ${colors} animate-fade-in-up`;
+    toast.innerHTML = `
+        <i class="ph ${icon} text-xl"></i>
+        <span>${message}</span>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('animate-fade-out-down');
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
 }

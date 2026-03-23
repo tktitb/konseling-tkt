@@ -18,37 +18,49 @@ let sortDir = 'asc';
 
 export async function renderAdminPage(container) {
     container.innerHTML = `
-        <div class="flex h-screen bg-brand-surface w-full overflow-hidden font-sans">
-            <aside class="w-64 bg-brand-navy text-white flex flex-col hidden md:flex shrink-0 shadow-2xl z-20">
-                <div class="p-6 border-b border-white/10 text-center relative overflow-hidden">
+        <div id="admin-layout" class="flex h-screen bg-brand-surface w-full overflow-hidden font-sans group">
+            <!-- Mobile Menu Overlay -->
+            <div id="mobile-menu-overlay" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden"></div>
+
+            <aside id="admin-sidebar" class="w-64 bg-brand-navy text-white flex flex-col absolute md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-all duration-300 ease-in-out shadow-2xl z-40 group-[.sidebar-collapsed]:w-20">
+                <div class="p-6 border-b border-white/10 text-center relative overflow-hidden h-[93px] flex flex-col justify-center">
                     <div class="absolute top-0 right-0 w-20 h-20 bg-brand-gold rounded-full blur-2xl opacity-20"></div>
                     <div class="absolute bottom-0 left-0 w-20 h-20 bg-brand-pink rounded-full blur-2xl opacity-20"></div>
-                    <h2 class="text-xl font-bold tracking-wide relative z-10"><span class="text-brand-pink">Admin</span> Panel</h2>
-                    <p class="text-xs text-brand-base/60 mt-1 relative z-10">Command Center ERP</p>
+                    <!-- Ganti dengan path logo Anda -->
+                    <img src="assets/images/logo-white.png" alt="Logo" class="h-10 mx-auto mb-2 relative z-10 transition-all duration-300 group-[.sidebar-collapsed]:h-8 group-[.sidebar-collapsed]:mb-0">
+                    <p class="text-xs text-brand-base/60 relative z-10 transition-opacity duration-200 group-[.sidebar-collapsed]:opacity-0 group-[.sidebar-collapsed]:h-0">Admin Command Center</p>
                 </div>
                 <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
-                    <button id="nav-analytics" class="w-full flex items-center gap-3 bg-white/10 px-4 py-3 rounded-xl text-brand-gold font-medium transition-colors">
-                        <i class="ph ph-chart-polar text-xl"></i> Dashboard Analitik
+                    <button id="nav-analytics" class="w-full flex items-center gap-3 bg-white/10 px-4 py-3 rounded-xl text-brand-gold font-medium transition-colors group-[.sidebar-collapsed]:justify-center">
+                        <i class="ph ph-chart-polar text-xl"></i> <span class="transition-opacity duration-200 group-[.sidebar-collapsed]:opacity-0 group-[.sidebar-collapsed]:hidden">Dashboard Analitik</span>
                     </button>
-                    <button id="nav-board" class="w-full flex items-center gap-3 hover:bg-white/5 px-4 py-3 rounded-xl text-white/70 hover:text-white transition-colors">
-                        <i class="ph ph-kanban text-xl"></i> Papan Jadwal
+                    <button id="nav-board" class="w-full flex items-center gap-3 hover:bg-white/5 px-4 py-3 rounded-xl text-white/70 hover:text-white transition-colors group-[.sidebar-collapsed]:justify-center">
+                        <i class="ph ph-kanban text-xl"></i> <span class="transition-opacity duration-200 group-[.sidebar-collapsed]:opacity-0 group-[.sidebar-collapsed]:hidden">Papan Jadwal</span>
                     </button>
-                    <button id="nav-table" class="w-full flex items-center gap-3 hover:bg-white/5 px-4 py-3 rounded-xl text-white/70 hover:text-white transition-colors">
-                        <i class="ph ph-table text-xl"></i> Master Data
+                    <button id="nav-table" class="w-full flex items-center gap-3 hover:bg-white/5 px-4 py-3 rounded-xl text-white/70 hover:text-white transition-colors group-[.sidebar-collapsed]:justify-center">
+                        <i class="ph ph-table text-xl"></i> <span class="transition-opacity duration-200 group-[.sidebar-collapsed]:opacity-0 group-[.sidebar-collapsed]:hidden">Master Data</span>
                     </button>
                     <div class="pt-4 mt-4 border-t border-white/10">
-                        <a href="#/display" target="_blank" class="flex items-center gap-3 hover:bg-white/5 px-4 py-3 rounded-xl text-brand-blue hover:text-brand-pink transition-colors bg-white/5">
-                            <i class="ph ph-monitor-play text-xl"></i> Buka Layar Booth
+                        <a href="#/display" target="_blank" class="flex items-center gap-3 hover:bg-white/5 px-4 py-3 rounded-xl text-brand-blue hover:text-brand-pink transition-colors bg-white/5 group-[.sidebar-collapsed]:justify-center">
+                            <i class="ph ph-monitor-play text-xl"></i> <span class="transition-opacity duration-200 group-[.sidebar-collapsed]:opacity-0 group-[.sidebar-collapsed]:hidden">Buka Layar Booth</span>
                         </a>
                     </div>
                 </nav>
+                <div class="p-4 border-t border-white/10 hidden md:block">
+                    <button id="desktop-toggle-sidebar" class="w-full flex items-center gap-3 hover:bg-white/5 px-4 py-3 rounded-xl text-white/70 hover:text-white transition-colors group-[.sidebar-collapsed]:justify-center">
+                        <i id="desktop-toggle-icon" class="ph ph-caret-double-left text-xl"></i> <span class="text-sm transition-opacity duration-200 group-[.sidebar-collapsed]:opacity-0 group-[.sidebar-collapsed]:hidden">Ciutkan</span>
+                    </button>
+                </div>
             </aside>
 
             <main class="flex-1 flex flex-col h-full overflow-hidden bg-brand-base relative">
                 
-                <header class="bg-white px-8 py-5 border-b border-gray-200 flex justify-between items-center shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] z-10 shrink-0">
+                <header class="bg-white px-4 md:px-8 py-4 border-b border-gray-200 flex justify-between items-center shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] z-10 shrink-0">
+                    <button id="hamburger-btn" class="md:hidden p-2 text-brand-navy text-2xl">
+                        <i class="ph ph-list"></i>
+                    </button>
                     <div>
-                        <h1 class="text-2xl font-bold text-brand-navy" id="header-title">Dashboard Analitik</h1>
+                        <h1 class="text-xl md:text-2xl font-bold text-brand-navy" id="header-title">Dashboard Analitik</h1>
                         <p class="text-sm text-gray-500" id="header-desc">Ringkasan statistik dan performa pendaftaran sesi.</p>
                     </div>
                     <div class="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
@@ -80,6 +92,10 @@ export async function renderAdminPage(container) {
                     <div id="modal-body" class="p-8 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 text-sm">
                         </div>
                 </div>
+            </div>
+
+            <!-- Toast Notification Container -->
+            <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-2">
             </div>
         </div>
     `;
@@ -128,6 +144,36 @@ async function initAdminData() {
     // Setup Modal Close
     document.getElementById('close-modal').addEventListener('click', closeModal);
 
+    // Setup Mobile Menu (Hamburger)
+    const sidebar = document.getElementById('admin-sidebar');
+    const overlay = document.getElementById('mobile-menu-overlay');
+    const hamburgerBtn = document.getElementById('hamburger-btn');
+
+    const closeMenu = () => {
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+    };
+
+    hamburgerBtn.addEventListener('click', () => {
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.remove('hidden');
+    });
+    overlay.addEventListener('click', closeMenu);
+
+    // Setup Desktop Sidebar Toggle
+    const layout = document.getElementById('admin-layout');
+    const desktopToggleBtn = document.getElementById('desktop-toggle-sidebar');
+    const desktopToggleIcon = document.getElementById('desktop-toggle-icon');
+    const desktopToggleText = desktopToggleBtn.querySelector('span');
+
+    desktopToggleBtn.addEventListener('click', () => {
+        layout.classList.toggle('sidebar-collapsed');
+        const isCollapsed = layout.classList.contains('sidebar-collapsed');
+        desktopToggleIcon.className = `ph ${isCollapsed ? 'ph-caret-double-right' : 'ph-caret-double-left'} text-xl`;
+        desktopToggleText.innerText = isCollapsed ? 'Lebarkan' : 'Ciutkan';
+    });
+
+
     document.getElementById('loading-admin').classList.add('hidden');
     renderCurrentTab();
 }
@@ -151,11 +197,11 @@ function switchTab(tabName, btnElement) {
     // Reset Sidebar Styles
     const navs = ['nav-analytics', 'nav-board', 'nav-table'];
     navs.forEach(id => {
-        document.getElementById(id).className = "w-full flex items-center gap-3 hover:bg-white/5 px-4 py-3 rounded-xl text-white/70 hover:text-white transition-colors";
+        document.getElementById(id).className = "w-full flex items-center gap-3 hover:bg-white/5 px-4 py-3 rounded-xl text-white/70 hover:text-white transition-colors group-[.sidebar-collapsed]:justify-center";
     });
     
     // Set Active
-    btnElement.className = "w-full flex items-center gap-3 bg-white/10 px-4 py-3 rounded-xl text-brand-gold font-bold shadow-inner transition-colors";
+    btnElement.className = "w-full flex items-center gap-3 bg-white/10 px-4 py-3 rounded-xl text-brand-gold font-bold shadow-inner transition-colors group-[.sidebar-collapsed]:justify-center";
     
     renderCurrentTab();
 }
@@ -485,10 +531,11 @@ function updateTableRows() {
             
             const res = await updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, sesi);
             if(res.success) {
-                if (res.dipromosikan) alert(`✅ SISTEM AUTO-PROMOTION BERHASIL!\n\nPeserta Waiting List bernama [${res.dipromosikan}] otomatis naik mengambil slot Psikolog yang baru saja dibatalkan!`);
+                if (res.dipromosikan) showToast(`Peserta [${res.dipromosikan}] berhasil dipromosikan!`, 'success');
+                else showToast(`Status berhasil diubah menjadi ${statusBaru}`, 'success');
                 await initAdminData(); // Refresh ALL DATA to update Analytics, Board, & Table simultaneously!
             } else {
-                alert("Gagal update status! Pastikan koneksi stabil.");
+                showToast("Gagal update status! Pastikan koneksi stabil.", 'error');
                 e.target.disabled = false;
                 document.getElementById('loading-admin').classList.add('hidden');
             }
@@ -564,4 +611,28 @@ function closeModal() {
     modal.classList.add('opacity-0');
     card.classList.add('scale-95');
     setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    const icon = type === 'success' ? 'ph-check-circle' : 'ph-x-circle';
+    const colors = type === 'success' 
+        ? 'bg-green-500 border-green-600' 
+        : 'bg-red-500 border-red-600';
+
+    toast.className = `flex items-center gap-3 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg border ${colors} animate-fade-in-up`;
+    toast.innerHTML = `
+        <i class="ph ${icon} text-xl"></i>
+        <span>${message}</span>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('animate-fade-out-down');
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
 }
