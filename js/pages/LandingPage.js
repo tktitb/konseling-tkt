@@ -69,22 +69,30 @@ export async function renderLandingPage(container) {
                                 <div class="col-span-1 md:col-span-2">
                                     <label class="${labelClass}">Nama Lengkap ${reqAsterisk}</label>
                                     <input type="text" name="nama_lengkap" required placeholder="Sesuai kartu identitas" class="${inputClass}">
+                                    <div id="error-nama_lengkap" class="error-message text-red-500 text-xs mt-1 hidden"></div>
                                 </div>
 
                                 <div>
                                     <label class="${labelClass}">Alamat Email ${reqAsterisk}</label>
                                     <input type="email" name="email" required placeholder="contoh@email.com" class="${inputClass}">
+                                    <div id="error-email" class="error-message text-red-500 text-xs mt-1 hidden"></div>
                                 </div>
 
                                 <div>
                                     <label class="${labelClass}">Nomor WhatsApp ${reqAsterisk}</label>
                                     <input type="tel" name="nomor_wa" required placeholder="081234567890" class="${inputClass}">
+                                    <div id="error-nomor_wa" class="error-message text-red-500 text-xs mt-1 hidden"></div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="space-y-6 pb-6 border-b border-gray-100">
                             <h3 class="text-lg font-bold text-brand-blue flex items-center gap-2"><i class="ph ph-graduation-cap"></i> Latar Belakang Pendidikan</h3>
+                            <div id="error-asal_univ_lain" class="error-message text-red-500 text-xs mt-1 hidden"></div>
+                            <div id="error-jurusan" class="error-message text-red-500 text-xs mt-1 hidden"></div>
+                            <div id="error-angkatan" class="error-message text-red-500 text-xs mt-1 hidden"></div>
+                            <div id="error-is_member_itbcc" class="error-message text-red-500 text-xs mt-1 hidden"></div>
+
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
@@ -104,6 +112,7 @@ export async function renderLandingPage(container) {
                                 </div>
 
                                 <div>
+                                    <div id="error-status_mhs" class="error-message text-red-500 text-xs mt-1 hidden"></div>
                                     <label class="${labelClass}">Asal Universitas ${reqAsterisk}</label>
                                     <div class="relative">
                                         <select id="asal_univ_select" name="asal_univ_select" required class="${inputClass} appearance-none cursor-pointer">
@@ -114,13 +123,15 @@ export async function renderLandingPage(container) {
                                         <i class="ph ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                                     </div>
                                     <div id="asal_univ_lain_container" class="mt-3 hidden animate-fade-in-up">
-                                        <input type="text" id="asal_univ_lain" name="asal_univ_lain" placeholder="Ketik nama universitas Anda..." class="${inputClass}">
+                                        <input type="text" id="asal_univ_lain" name="asal_univ_lain" placeholder="Ketik nama universitas Anda..." class="${inputClass}" disabled>
+                                        <div id="error-asal_univ_lain_input" class="error-message text-red-500 text-xs mt-1 hidden"></div>
                                     </div>
                                 </div>
 
                                 <div>
                                     <label class="${labelClass}">Program Studi / Jurusan ${reqAsterisk}</label>
                                     <input type="text" name="jurusan" required placeholder="Contoh: Teknik Informatika" class="${inputClass}">
+                                    <div id="error-jurusan" class="error-message text-red-500 text-xs mt-1 hidden"></div>
                                 </div>
 
                                 <div>
@@ -140,6 +151,7 @@ export async function renderLandingPage(container) {
                                             <span class="text-brand-text font-medium group-hover:text-brand-gold transition-colors">Belum</span>
                                         </label>
                                     </div>
+                                    <div id="error-is_member_itbcc" class="error-message text-red-500 text-xs mt-1 hidden"></div>
                                 </div>
                             </div>
                         </div>
@@ -155,6 +167,7 @@ export async function renderLandingPage(container) {
                                             ${opsiTanggalHTML}
                                         </select>
                                         <i class="ph ph-calendar-blank absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                                        <div id="error-jadwal_hari" class="error-message text-red-500 text-xs mt-1 hidden"></div>
                                     </div>
                                 </div>
 
@@ -172,6 +185,18 @@ export async function renderLandingPage(container) {
                                             <option value="14.55-15.40">14.55 - 15.40</option>
                                         </select>
                                         <i class="ph ph-clock absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                                        <div id="error-jadwal_sesi" class="error-message text-red-500 text-xs mt-1 hidden"></div>
+                                    </div>
+                                </div>
+
+                                <!-- [BARU] Pilihan Psikolog, muncul setelah pilih tanggal -->
+                                <div id="psikolog-choice-container" class="col-span-1 md:col-span-2 hidden animate-fade-in-up">
+                                    <label class="${labelClass}">Pilihan Psikolog ${reqAsterisk}</label>
+                                    <div class="relative">
+                                        <select name="psikolog_pilihan" required class="${inputClass} appearance-none cursor-pointer">
+                                            </select>
+                                        <i class="ph ph-user-focus absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                                        <div id="error-psikolog_pilihan" class="error-message text-red-500 text-xs mt-1 hidden"></div>
                                     </div>
                                 </div>
 
@@ -185,6 +210,11 @@ export async function renderLandingPage(container) {
                                             <option value="Keduanya">Keduanya</option>
                                         </select>
                                         <i class="ph ph-target absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                                        <div id="error-harapan_sesi" class="error-message text-red-500 text-xs mt-1 hidden"></div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <label class="${labelClass}">Ceritakan Detail Harapan Anda (Opsional)</label>
+                                        <textarea name="detail_harapan" rows="4" placeholder="Contoh: Saya ingin membahas strategi negosiasi gaji dan bagaimana cara membuat CV yang menarik untuk industri kreatif." class="${inputClass} resize-y"></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -220,17 +250,55 @@ function setupFormInteractions() {
     const univSelect = document.getElementById('asal_univ_select');
     const univLainContainer = document.getElementById('asal_univ_lain_container');
     const univLainInput = document.getElementById('asal_univ_lain');
+    const jadwalHariSelect = document.querySelector('select[name="jadwal_hari"]');
+    const psikologContainer = document.getElementById('psikolog-choice-container');
+    const psikologSelect = document.querySelector('select[name="psikolog_pilihan"]');
 
     // Toggle logic untuk "Asal Universitas"
     univSelect.addEventListener('change', (e) => {
         if (e.target.value === 'Yang lain') {
             univLainContainer.classList.remove('hidden');
             univLainInput.setAttribute('required', 'true');
+            univLainInput.removeAttribute('disabled'); // Aktifkan input
             univLainInput.focus();
         } else {
             univLainContainer.classList.add('hidden');
             univLainInput.removeAttribute('required');
             univLainInput.value = '';
+            univLainInput.setAttribute('disabled', 'true'); // Nonaktifkan input
+        }
+    });
+
+    // [BARU] Logika untuk menampilkan pilihan psikolog secara dinamis
+    jadwalHariSelect.addEventListener('change', async (e) => {
+        const selectedDayValue = e.target.value;
+        if (!selectedDayValue) {
+            psikologContainer.classList.add('hidden');
+            return;
+        }
+
+        // Ambil config untuk mendapatkan daftar psikolog
+        const config = await getSystemConfig();
+        let psikologListKey = null;
+
+        if (config.tanggal_kegiatan_1 === selectedDayValue) {
+            psikologListKey = 'psikolog_list_1';
+        } else if (config.tanggal_kegiatan_2 === selectedDayValue) {
+            psikologListKey = 'psikolog_list_2';
+        }
+
+        if (psikologListKey && config[psikologListKey]) {
+            const psikologList = JSON.parse(config[psikologListKey]);
+            
+            let optionsHTML = '<option value="Siapa saja (Rekomendasi)" selected>Siapa saja (Rekomendasi)</option>';
+            psikologList.forEach(nama => {
+                optionsHTML += `<option value="${nama}">${nama}</option>`;
+            });
+            
+            psikologSelect.innerHTML = optionsHTML;
+            psikologContainer.classList.remove('hidden');
+        } else {
+            psikologContainer.classList.add('hidden');
         }
     });
 
@@ -248,6 +316,12 @@ async function handleFormSubmit(event) {
     const btnSubmit = document.getElementById('btn-submit');
     const originalBtnContent = btnSubmit.innerHTML;
     
+    // 1. Validasi Frontend
+    if (!validateForm(form)) {
+        showToast("Mohon lengkapi semua data yang wajib diisi.", 'error');
+        return; // Hentikan proses jika validasi gagal
+    }
+
     // Animasi Loading di Tombol
     btnSubmit.disabled = true;
     btnSubmit.innerHTML = `<i class="ph ph-spinner animate-spin text-2xl"></i><span>Memproses Jadwal...</span>`;
@@ -273,14 +347,20 @@ async function handleFormSubmit(event) {
         angkatan: formData.get('angkatan'),
         harapan_sesi: formData.get('harapan_sesi'),
         jadwal_hari: formData.get('jadwal_hari'),
-        jadwal_sesi: formData.get('jadwal_sesi')
+        jadwal_sesi: formData.get('jadwal_sesi'),
+        detail_harapan: formData.get('detail_harapan'),
+        psikolog_pilihan: formData.get('psikolog_pilihan') // [BARU] Mengambil data pilihan psikolog
     };
 
     // Tembak ke API
     const result = await submitRegistration(dataObject);
 
     if (result.success) {
+        showToast("Pendaftaran berhasil!", 'success');
         // Render Tampilan Sukses yang Elegan
+        // Clear form fields after successful submission
+        form.reset();
+
         const container = document.getElementById('app');
         
         let statusMessage = result.status === 'DAPAT_SESI' 
@@ -314,7 +394,7 @@ async function handleFormSubmit(event) {
             </div>
         `;
     } else {
-        showToast("Terjadi kesalahan sistem: " + result.message, 'error');
+        showToast("Gagal mendaftar: " + result.message, 'error');
         btnSubmit.disabled = false;
         btnSubmit.innerHTML = originalBtnContent;
         btnSubmit.classList.replace('bg-gray-400', 'bg-brand-pink');
@@ -344,4 +424,68 @@ function showToast(message, type = 'info') {
         toast.classList.add('animate-fade-out-down');
         setTimeout(() => toast.remove(), 500);
     }, 4000);
+}
+
+/**
+ * Fungsi untuk menampilkan pesan error di bawah input field.
+ * @param {HTMLElement} inputElement Elemen input yang memiliki error.
+ * @param {string} message Pesan error yang akan ditampilkan.
+ */
+function displayError(inputElement, message) {
+    const errorDiv = document.getElementById(`error-${inputElement.name}`);
+    if (errorDiv) {
+        errorDiv.innerText = message;
+        errorDiv.classList.remove('hidden');
+        inputElement.classList.add('border-red-500'); // Tambahkan border merah
+    }
+}
+
+/**
+ * Fungsi untuk menghapus pesan error dari bawah input field.
+ * @param {HTMLElement} inputElement Elemen input yang errornya akan dihapus.
+ */
+function clearError(inputElement) {
+    const errorDiv = document.getElementById(`error-${inputElement.name}`);
+    if (errorDiv) {
+        errorDiv.innerText = '';
+        errorDiv.classList.add('hidden');
+        inputElement.classList.remove('border-red-500'); // Hapus border merah
+    }
+}
+
+/**
+ * Fungsi validasi form secara keseluruhan.
+ * @param {HTMLFormElement} form Elemen form yang akan divalidasi.
+ * @returns {boolean} True jika form valid, false jika tidak.
+ */
+function validateForm(form) {
+    let isValid = true;
+    const requiredFields = form.querySelectorAll('[required]');
+
+    requiredFields.forEach(input => {
+        clearError(input); // Bersihkan error sebelumnya
+
+        if (input.type === 'radio') {
+            const radioGroup = form.querySelectorAll(`input[name="${input.name}"]`);
+            const isChecked = Array.from(radioGroup).some(radio => radio.checked);
+            if (!isChecked) {
+                displayError(input, `Pilihan ${input.name.replace(/_/g, ' ')} wajib diisi.`);
+                isValid = false;
+            }
+        } else if (input.value.trim() === '') {
+            displayError(input, `${input.placeholder.split(' ')[0]} wajib diisi.`);
+            isValid = false;
+        } else if (input.name === 'email' && !/\S+@\S+\.\S+/.test(input.value)) {
+            displayError(input, 'Format email tidak valid.');
+            isValid = false;
+        } else if (input.name === 'nomor_wa' && !/^(08|628)\d{7,11}$/.test(input.value)) {
+            displayError(input, 'Format nomor WhatsApp tidak valid (contoh: 0812...).');
+            isValid = false;
+        } else if (input.name === 'asal_univ_lain' && document.getElementById('asal_univ_select').value === 'Yang lain' && input.value.trim() === '') {
+            displayError(input, 'Nama universitas wajib diisi.');
+            isValid = false;
+        }
+    });
+
+    return isValid;
 }

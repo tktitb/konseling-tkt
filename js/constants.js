@@ -15,5 +15,6 @@ export const SYSTEM_CONFIG = {
 export const ROUTES = {
     HOME: '',
     ADMIN: '#/admin-rahasia',
-    DISPLAY: '#/display'
+    DISPLAY: '#/display',
+    FEEDBACK: '#/feedback'
 };

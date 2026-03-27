@@ -1,5 +1,5 @@
-// File: frontend/js/pages/AdminPage.js
-import { getSemuaPeserta, getSystemConfig, toggleStatusPendaftaran, updateStatusPesertaDenganAutoPromo } from '../services/apiService.js';
+// File: frontend/js/pages/adminpage.js
+import { getSemuaPeserta, getSystemConfig, toggleStatusPendaftaran, updateStatusPesertaDenganAutoPromo, generateWhatsAppLink } from '../services/apiService.js';
 
 // ==========================================
 // STATE GLOBAL ADMIN
@@ -94,6 +94,24 @@ export async function renderAdminPage(container) {
                 </div>
             </div>
 
+            <!-- Confirmation Modal for Status Change -->
+            <div id="confirm-status-modal" class="fixed inset-0 bg-brand-navy/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+                <div class="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden scale-95 transition-transform duration-300 transform" id="confirm-status-modal-card">
+                    <div class="bg-brand-navy p-6 flex justify-between items-center text-white relative overflow-hidden">
+                        <div class="absolute right-0 top-0 w-32 h-32 bg-brand-gold/20 rounded-full blur-2xl -translate-y-10"></div>
+                        <h3 class="text-xl font-bold relative z-10 flex items-center gap-2"><i class="ph ph-warning-circle text-brand-gold"></i> Konfirmasi Perubahan Status</h3>
+                        <button id="close-confirm-status-modal" class="text-white/70 hover:text-white text-2xl relative z-10 transition-transform hover:rotate-90"><i class="ph ph-x"></i></button>
+                    </div>
+                    <div class="p-8 text-center">
+                        <p class="text-brand-navy text-lg font-semibold mb-6" id="confirm-status-message">Anda yakin ingin mengubah status peserta ini?</p>
+                        <div class="flex justify-center gap-4">
+                            <button id="confirm-status-yes" class="px-6 py-3 bg-brand-pink hover:bg-brand-pinkdark text-white rounded-xl font-bold transition-colors shadow-md">Ya, Ubah Status</button>
+                            <button id="confirm-status-no" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-brand-navy rounded-xl font-bold transition-colors shadow-md">Tidak, Kembali</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Toast Notification Container -->
             <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-2">
             </div>
@@ -143,6 +161,10 @@ async function initAdminData() {
 
     // Setup Modal Close
     document.getElementById('close-modal').addEventListener('click', closeModal);
+
+    // Setup Confirmation Modal Close
+    document.getElementById('close-confirm-status-modal').addEventListener('click', closeConfirmStatusModal);
+    document.getElementById('confirm-status-no').addEventListener('click', closeConfirmStatusModal);
 
     // Setup Mobile Menu (Hamburger)
     const sidebar = document.getElementById('admin-sidebar');
@@ -210,7 +232,7 @@ function renderCurrentTab() {
     const container = document.getElementById('admin-content');
     if (CURRENT_TAB === 'analytics') renderAnalyticsView(container);
     else if (CURRENT_TAB === 'board') renderBoardView(container);
-    else renderTableView(container);
+    else if (CURRENT_TAB === 'table') renderTableView(container);
 }
 
 // ==========================================================
@@ -290,7 +312,7 @@ function renderAnalyticsView(container) {
 // ==========================================================
 // 2. BOARD VIEW (Hierarki: Hari -> Psikolog -> Jam Sesi)
 // ==========================================================
-function renderBoardView(container) {
+async function renderBoardView(container) {
     const days = [...new Set(ALL_DATA.map(p => p.jadwal_hari))].filter(Boolean);
     
     if (days.length === 0) {
@@ -301,15 +323,21 @@ function renderBoardView(container) {
     let html = `<div class="space-y-10 animate-fade-in-up">`;
     const sesiList = ["09.00-09.45", "09.50-10.35", "10.40-11.25", "11.30-12.15", "13.15-14.00", "14.05-14.50", "14.55-15.40"];
 
-    days.forEach(day => {
+    for (const day of days) {
         html += `<div class="bg-white rounded-[24px] shadow-elegant border border-gray-100 p-8">
                     <h2 class="text-2xl font-black text-brand-navy border-b-2 border-brand-pink inline-block pb-2 mb-8"><i class="ph ph-calendar-check text-brand-pink"></i> Jadwal: ${day}</h2>
                     <div class="space-y-8">`;
         
-        // Loop Berdasarkan Psikolog (1 s/d 5)
-        for (let i = 1; i <= 5; i++) {
-            let keyPsikolog = `psikolog_${i}`;
-            let namaPsikolog = CONFIG[keyPsikolog] || `Psikolog ${i}`;
+        // [DIUBAH] Loop berdasarkan daftar psikolog dinamis dari config
+        let psikologListKey;
+        if (day === CONFIG.tanggal_kegiatan_1) {
+            psikologListKey = 'psikolog_list_1';
+        } else if (day === CONFIG.tanggal_kegiatan_2) {
+            psikologListKey = 'psikolog_list_2';
+        }
+        const psikologListForDay = (psikologListKey && CONFIG[psikologListKey]) ? JSON.parse(CONFIG[psikologListKey]) : [];
+
+        for (const namaPsikolog of psikologListForDay) {
             
             html += `
                 <div class="bg-[#FDF8EE] rounded-2xl p-6 border border-brand-gold/20 shadow-sm relative overflow-hidden">
@@ -321,26 +349,38 @@ function renderBoardView(container) {
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             `;
 
-            sesiList.forEach(sesi => {
+            for (const sesi of sesiList) {
                 // Cari peserta di Hari ini, Psikolog ini, dan Jam Sesi ini
-                let penghuni = ALL_DATA.find(p => p.jadwal_hari === day && p.psikolog_bertugas === keyPsikolog && p.jadwal_sesi === sesi && !['WAITING_LIST', 'BATAL'].includes(p.status_peserta));
+                let penghuni = ALL_DATA.find(p => p.jadwal_hari === day && p.psikolog_bertugas === namaPsikolog && p.jadwal_sesi === sesi && !['WAITING_LIST', 'BATAL'].includes(p.status_peserta));
 
                 if (penghuni) {
                     let badgeColor = penghuni.status_peserta === 'CONFIRMED' ? 'text-green-700 bg-green-100 border-green-200' : 
                                      ['HADIR', 'SELESAI_FULL'].includes(penghuni.status_peserta) ? 'text-brand-base bg-brand-navy border-brand-navy' : 
                                      'text-brand-blue bg-blue-50 border-blue-200';
                     
-                    let waLink = penghuni.nomor_wa.startsWith('0') ? '62' + penghuni.nomor_wa.substring(1) : penghuni.nomor_wa;
-                    let pesanWa = encodeURIComponent(`Halo ${penghuni.nama_lengkap}, dari Panitia Konseling Karier. Kami mengonfirmasi jadwal Anda pada ${day} pukul ${sesi} dengan ${namaPsikolog}. Apakah Anda bersedia hadir?`);
+                    const waLink = await generateWhatsAppLink('wa_template_konfirmasi_sesi', penghuni) || '#';
+
+                    let feedbackButtonHTML = '';
+                    if (penghuni.status_peserta === 'HADIR') {
+                        const feedbackWaLink = await generateWhatsAppLink('wa_template_minta_feedback', penghuni) || '#';
+                        feedbackButtonHTML = `
+                            <a href="${feedbackWaLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
+                                <i class="ph ph-chat-centered-text text-lg"></i>
+                            </a>
+                        `;
+                    }
 
                     html += `
                         <div class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:border-brand-pink transition-colors group relative">
                             <div>
                                 <div class="flex justify-between items-start mb-2">
                                     <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border ${badgeColor}">${penghuni.status_peserta.replace('_', ' ')}</span>
-                                    <a href="https://wa.me/${waLink}?text=${pesanWa}" target="_blank" class="text-green-500 hover:text-green-600 bg-green-50 hover:bg-green-100 p-1.5 rounded-md transition-colors" title="Chat WA">
-                                        <i class="ph ph-whatsapp-logo text-lg"></i>
-                                    </a>
+                                    <div class="flex items-center gap-1">
+                                        <a href="${waLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Chat WA">
+                                            <i class="ph ph-whatsapp-logo text-lg"></i> 
+                                        </a>
+                                        ${feedbackButtonHTML}
+                                    </div>
                                 </div>
                                 <p class="text-[11px] font-bold text-gray-400 mb-0.5"><i class="ph ph-clock"></i> ${sesi}</p>
                                 <p class="font-bold text-brand-navy text-sm leading-tight mb-1 truncate cursor-pointer hover:text-brand-pink" onclick="window.bukaDetail('${penghuni.id}')">${penghuni.nama_lengkap}</p>
@@ -355,11 +395,11 @@ function renderBoardView(container) {
                         </div>
                     `;
                 }
-            });
+            }
             html += `</div></div>`;
         }
         html += `</div></div>`;
-    });
+    }
     html += `</div>`;
     container.innerHTML = html;
 }
@@ -429,7 +469,7 @@ function renderTableView(container) {
     updateTableRows();
 }
 
-function updateTableRows() {
+async function updateTableRows() {
     const tbody = document.getElementById('table-body');
     const pagination = document.getElementById('pagination-controls');
 
@@ -457,11 +497,11 @@ function updateTableRows() {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
-    tbody.innerHTML = '';
+    let rowsHTML = '';
     if (paginatedData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-gray-400"><i class="ph ph-magnifying-glass text-4xl mb-2"></i><br>Data tidak ditemukan.</td></tr>`;
+        rowsHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-gray-400"><i class="ph ph-magnifying-glass text-4xl mb-2"></i><br>Data tidak ditemukan.</td></tr>`;
     } else {
-        paginatedData.forEach((p, index) => {
+        for (const [index, p] of paginatedData.entries()) {
             const absoluteIndex = startIndex + index + 1; // Penomoran Akurat
 
             let badgeClass = 'bg-gray-100 text-gray-700';
@@ -471,10 +511,9 @@ function updateTableRows() {
             if (p.status_peserta === 'BATAL') badgeClass = 'bg-red-50 text-red-700 border border-red-200';
             if (['HADIR', 'SELESAI_FULL'].includes(p.status_peserta)) badgeClass = 'bg-brand-navy text-brand-base border border-brand-navy';
             
-            let waLink = p.nomor_wa.startsWith('0') ? '62' + p.nomor_wa.substring(1) : p.nomor_wa;
-            let pesanWa = encodeURIComponent(`Halo ${p.nama_lengkap}, dari Panitia Konseling. Mengonfirmasi jadwal Anda pada ${p.jadwal_hari} pukul ${p.jadwal_sesi}.`);
+            const waLink = await generateWhatsAppLink(p.status_peserta === 'WAITING_LIST' ? 'wa_template_waiting_list' : 'wa_template_konfirmasi_sesi', p) || '#'; // [FIX] Menggunakan template yang sesuai
 
-            tbody.innerHTML += `
+            rowsHTML += `
                 <tr class="hover:bg-brand-base/40 transition-colors group">
                     <td class="px-5 py-4 text-center font-bold text-gray-400 group-hover:text-brand-pink">${absoluteIndex}</td>
                     <td class="px-6 py-4">
@@ -485,7 +524,7 @@ function updateTableRows() {
                         <p class="font-bold text-brand-navy text-xs mb-0.5">${p.jadwal_hari}</p>
                         <p class="text-brand-pink font-bold text-[11px] bg-brand-pink/10 inline-block px-1.5 py-0.5 rounded">
                             <i class="ph ph-clock"></i> ${p.jadwal_sesi} 
-                            <span class="text-brand-blue ml-1">${p.psikolog_bertugas ? `(${CONFIG[p.psikolog_bertugas] || p.psikolog_bertugas})` : '(Antre)'}</span>
+                            <span class="text-brand-blue ml-1">(${p.psikolog_bertugas || 'Antre'})</span>
                         </p>
                     </td>
                     <td class="px-6 py-4 text-center">
@@ -494,21 +533,26 @@ function updateTableRows() {
                     <td class="px-6 py-4">
                         <div class="flex items-center justify-center gap-2">
                             <button onclick="window.bukaDetail('${p.id}')" class="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-brand-navy rounded-xl font-bold transition-transform hover:scale-105" title="Lihat Profil"><i class="ph ph-identification-card text-lg"></i></button>
-                            <a href="https://wa.me/${waLink}?text=${pesanWa}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Kirim WA"><i class="ph ph-whatsapp-logo text-lg"></i></a>
+                            <a href="${waLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Kirim WA"><i class="ph ph-whatsapp-logo text-lg"></i></a>
+                            ${p.status_peserta === 'HADIR' ? `
+                                <a href="${await generateWhatsAppLink('wa_template_minta_feedback', p) || '#'}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
+                                    <i class="ph ph-chat-centered-text text-lg"></i>
+                                </a>
+                            ` : ''}
                             <select class="status-selector text-[11px] bg-white border border-gray-300 rounded-xl px-2 py-2 outline-none focus:border-brand-pink cursor-pointer font-bold text-brand-navy transition-colors hover:border-gray-400"
                                 data-id="${p.id}" data-hari="${p.jadwal_hari}" data-sesi="${p.jadwal_sesi}">
                                 <option value="" disabled selected>Ubah Status</option>
                                 <option value="CONFIRMED">✅ Confirmed</option>
-                                <option value="HADIR">📍 Hadir (Hari H)</option>
-                                <option value="SELESAI_FULL">🏁 Selesai</option>
+                                <option value="HADIR">📍 Hadir (Hari H)</option>                                
                                 <option value="BATAL">❌ Batal/Kick</option>
                             </select>
                         </div>
                     </td>
                 </tr>
             `;
-        });
+        }
     }
+    tbody.innerHTML = rowsHTML;
 
     pagination.innerHTML = `
         <span class="text-sm text-gray-500 font-semibold bg-white px-4 py-2 rounded-xl border border-gray-200">Halaman <span class="text-brand-navy">${currentPage}</span> dari ${totalPages} <span class="mx-2">|</span> Total <span class="text-brand-pink">${filteredData.length}</span> Data</span>
@@ -520,27 +564,61 @@ function updateTableRows() {
 
     // Attach Status Selector Logic (Panggil API + Re-render)
     document.querySelectorAll('.status-selector').forEach(sel => {
-        sel.addEventListener('change', async (e) => {
+        sel.addEventListener('change', (e) => {
             const id = e.target.dataset.id;
             const hari = e.target.dataset.hari;
             const sesi = e.target.dataset.sesi;
             const statusBaru = e.target.value;
-            
-            e.target.disabled = true;
-            document.getElementById('loading-admin').classList.remove('hidden');
-            
-            const res = await updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, sesi);
-            if(res.success) {
-                if (res.dipromosikan) showToast(`Peserta [${res.dipromosikan}] berhasil dipromosikan!`, 'success');
-                else showToast(`Status berhasil diubah menjadi ${statusBaru}`, 'success');
-                await initAdminData(); // Refresh ALL DATA to update Analytics, Board, & Table simultaneously!
-            } else {
-                showToast("Gagal update status! Pastikan koneksi stabil.", 'error');
-                e.target.disabled = false;
-                document.getElementById('loading-admin').classList.add('hidden');
-            }
+            const namaPeserta = e.target.closest('tr').querySelector('td:nth-child(2) p:first-child').innerText;
+            const originalStatus = ALL_DATA.find(p => p.id === id).status_peserta;
+
+            showConfirmationModal(id, namaPeserta, statusBaru, hari, sesi, originalStatus, e.target);
         });
     });
+}
+
+// [BARU] Fungsi untuk menampilkan modal konfirmasi perubahan status
+async function showConfirmationModal(id, namaPeserta, statusBaru, hari, sesi, originalStatus, selectElement) {
+    const modal = document.getElementById('confirm-status-modal');
+    const card = document.getElementById('confirm-status-modal-card');
+    const messageEl = document.getElementById('confirm-status-message');
+    const confirmBtn = document.getElementById('confirm-status-yes');
+
+    messageEl.innerHTML = `Anda yakin ingin mengubah status <span class="font-bold text-brand-pink">${namaPeserta}</span> menjadi <span class="font-bold text-brand-gold">${statusBaru.replace('_', ' ')}</span>?`;
+
+    // Hapus event listener sebelumnya untuk mencegah duplikasi
+    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+    const newConfirmBtn = document.getElementById('confirm-status-yes');
+
+    newConfirmBtn.addEventListener('click', async () => {
+        closeConfirmStatusModal();
+        selectElement.disabled = true;
+        document.getElementById('loading-admin').classList.remove('hidden');
+        
+        const res = await updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, sesi);
+        if(res.success) {
+            if (res.dipromosikan) showToast(`Peserta [${res.dipromosikan}] berhasil dipromosikan!`, 'success');
+            else showToast(`Status berhasil diubah menjadi ${statusBaru}`, 'success');
+            await initAdminData(); // Refresh ALL DATA to update Analytics, Board, & Table simultaneously!
+        } else {
+            showToast("Gagal update status! Pastikan koneksi stabil.", 'error');
+            selectElement.disabled = false;
+            selectElement.value = originalStatus; // Kembalikan ke status semula jika gagal
+            document.getElementById('loading-admin').classList.add('hidden');
+        }
+    });
+
+    // Tampilkan modal
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.classList.remove('opacity-0'); card.classList.remove('scale-95'); }, 10);
+}
+
+function closeConfirmStatusModal() {
+    const modal = document.getElementById('confirm-status-modal');
+    const card = document.getElementById('confirm-status-modal-card');
+    modal.classList.add('opacity-0');
+    card.classList.add('scale-95');
+    setTimeout(() => modal.classList.add('hidden'), 300);
 }
 
 // ==========================================================
@@ -595,7 +673,7 @@ window.bukaDetail = (id) => {
                 </div>
                 <div class="text-right">
                     <p class="text-[10px] uppercase text-gray-300">Ditempatkan Pada:</p>
-                    <p class="font-black text-brand-gold text-lg">${p.psikolog_bertugas ? (CONFIG[p.psikolog_bertugas] || p.psikolog_bertugas) : 'Waiting List'}</p>
+                    <p class="font-black text-brand-gold text-lg">${p.psikolog_bertugas || 'Waiting List'}</p>
                 </div>
             </div>
         </div>

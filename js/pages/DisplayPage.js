@@ -1,10 +1,11 @@
 // File: frontend/js/pages/DisplayPage.js
-import { getSemuaPeserta, getSystemConfig } from '../services/apiService.js';
+import { getSemuaPeserta, getSystemConfig, subscribeToPesertaChanges } from '../services/apiService.js';
 
 let ALL_DATA = [];
 let CONFIG = {};
 let clockInterval;
-let syncInterval; // Variabel untuk menyimpan interval Auto-Sync
+let realtimeSubscription; // Variabel untuk menyimpan langganan Realtime
+let selectedDisplayDay = ''; // Hari yang sedang ditampilkan
 
 export async function renderDisplayPage(container) {
     container.innerHTML = `
@@ -15,10 +16,19 @@ export async function renderDisplayPage(container) {
             <header class="flex justify-between items-end px-10 py-6 border-b border-white/10 shrink-0 bg-[#0B1A26]/80 backdrop-blur-md z-10">
                 <div class="flex items-center gap-6">
                     <!-- Ganti dengan path logo Anda -->
-                    <img src="assets/images/logo-white.png" alt="Logo" class="h-12">
+                    <img src="assets/images/logo-white.png" alt="Logo" class="h-10">
                     <div>
                         <h1 class="text-4xl font-black tracking-wide text-white">Status <span class="text-brand-gold">Konseling</span></h1>
-                        <p class="text-brand-pink font-semibold tracking-widest uppercase text-sm" id="tanggal-hari-ini">Memuat Jadwal...</p>
+                        <div class="relative mt-2">
+                            <select id="day-selector" class="bg-brand-navy border border-brand-gold/50 text-white text-sm font-semibold rounded-lg focus:ring-brand-pink focus:border-brand-pink block w-full p-2.5 pr-8 appearance-none cursor-pointer">
+                                <option value="" disabled selected>Pilih Hari...</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                            </div>
+                        </div>
+                        <p class="text-brand-pink font-semibold tracking-widest uppercase text-sm mt-2" id="tanggal-hari-ini">Memuat Jadwal...</p>
+
                     </div>
                 </div>
                 <div class="text-right flex flex-col items-end">
@@ -26,12 +36,12 @@ export async function renderDisplayPage(container) {
                         00:00:00
                     </div>
                     <p class="text-gray-400 font-medium tracking-widest text-sm mt-1 uppercase flex items-center gap-2" title="Data diperbarui otomatis setiap 5 menit">
-                        <i class="ph ph-arrows-clockwise text-brand-blue" id="sync-icon"></i> Auto-Sync (5 Menit)
+                        <i class="ph ph-arrows-clockwise text-brand-blue" id="sync-icon"></i> Real-time Update
                     </p>
                 </div>
             </header>
 
-            <main class="flex-1 p-8 grid grid-cols-5 gap-6 overflow-hidden z-10" id="display-grid">
+            <main class="flex-1 p-8 overflow-hidden z-10" id="display-content">
                 <div class="col-span-5 flex flex-col items-center justify-center h-full">
                     <i class="ph ph-spinner animate-spin text-6xl text-brand-gold mb-4"></i>
                     <p class="text-xl text-gray-400 font-medium">Menarik data dari database...</p>
@@ -48,106 +58,152 @@ export async function renderDisplayPage(container) {
     // 1. Mulai Jam Digital
     jalankanJamLokal();
 
-    // 2. Ambil Data Awal (Pertama kali buka)
+    // 2. Ambil Konfigurasi Sistem
     CONFIG = await getSystemConfig();
+
+    // 3. Populate Day Selector
+    const daySelector = document.getElementById('day-selector');
+    let firstDayValue = '';
+    Object.keys(CONFIG).forEach(key => {
+        if (key.startsWith('tanggal_kegiatan_')) {
+            const dayValue = CONFIG[key];
+            const option = document.createElement('option');
+            option.value = dayValue;
+            option.innerText = dayValue;
+            daySelector.appendChild(option);
+            if (!firstDayValue) firstDayValue = dayValue; // Set first day as default
+        }
+    });
+
+    if (firstDayValue) {
+        daySelector.value = firstDayValue;
+        selectedDisplayDay = firstDayValue;
+    }
+
+    // 4. Attach Event Listener for Day Selector
+    daySelector.addEventListener('change', (e) => {
+        selectedDisplayDay = e.target.value;
+        muatUlangLayar();
+    });
+
+    // 5. Inisialisasi Tampilan Awal
     await muatUlangLayar();
 
-    // 3. LOGIKA SILENT POLLING (Auto-Sync Setiap 5 Menit)
-    // 5 menit = 5 * 60 * 1000 = 300000 milidetik
-    if (syncInterval) clearInterval(syncInterval);
-    syncInterval = setInterval(async () => {
-        // Putar ikon sync sebentar agar panitia tahu sistem sedang menarik data
+    // 6. Supabase Realtime Subscription
+    if (realtimeSubscription) {
+        supabase.removeChannel(realtimeSubscription); // Hapus langganan lama jika ada
+    }
+    realtimeSubscription = subscribeToPesertaChanges(async () => {
+        console.log("Realtime update received! Re-rendering display.");
         const syncIcon = document.getElementById('sync-icon');
-        if (syncIcon) syncIcon.classList.add('animate-spin');
-        
-        await muatUlangLayar(); // Ambil data baru secara senyap
-        
-        if (syncIcon) syncIcon.classList.remove('animate-spin');
-    }, 300000); // <-- Bos bisa ganti angka ini misal jadi 60000 kalau mau 1 menit sekali
+        if (syncIcon) {
+            syncIcon.classList.add('animate-spin');
+            setTimeout(() => syncIcon.classList.remove('animate-spin'), 1000); // Putar sebentar
+        }
+        await muatUlangLayar();
+    });
 }
 
 async function muatUlangLayar() {
+    if (!selectedDisplayDay) {
+        const content = document.getElementById('display-content');
+        content.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400"><i class="ph ph-info text-6xl mb-4"></i><p>Pilih hari kegiatan untuk menampilkan jadwal.</p></div>`;
+        return;
+    }
+
     ALL_DATA = await getSemuaPeserta();
-    const grid = document.getElementById('display-grid');
-    const headerTanggal = document.getElementById('tanggal-hari-ini');
+    const content = document.getElementById('display-content');
+    const headerTanggal = document.getElementById('tanggal-hari-ini'); // Ini adalah elemen <p> di header
     const lastUpdate = document.getElementById('last-update-text');
     
-    // Asumsi kita tampilkan data untuk hari paling awal yang ada pendaftarnya
-    const hariAktif = [...new Set(ALL_DATA.map(p => p.jadwal_hari))].filter(Boolean)[0] || "Belum ada jadwal hari ini";
-    if (headerTanggal) headerTanggal.innerText = `Jadwal: ${hariAktif}`;
-    
+    // Gunakan selectedDisplayDay yang sudah diatur dari dropdown
+    if (headerTanggal) headerTanggal.innerText = `Jadwal: ${selectedDisplayDay}`;
+
     // Catat waktu update terakhir di footer
-    const now = new Date();
-    if (lastUpdate) lastUpdate.innerText = `Update Terakhir: ${now.toLocaleTimeString('id-ID', { hour12: false })}`;
+    if (lastUpdate) lastUpdate.innerText = `Update Terakhir: ${new Date().toLocaleTimeString('id-ID', { hour12: false })}`;
+
+    // [DIUBAH] Tentukan daftar psikolog yang akan dirender berdasarkan selectedDisplayDay
+    const hariAktif = selectedDisplayDay;
+    let psikologListKey;
+    if (hariAktif === CONFIG.tanggal_kegiatan_1) {
+        psikologListKey = 'psikolog_list_1';
+    } else if (hariAktif === CONFIG.tanggal_kegiatan_2) {
+        psikologListKey = 'psikolog_list_2';
+    }
+    const psikologListForDay = (psikologListKey && CONFIG[psikologListKey]) ? JSON.parse(CONFIG[psikologListKey]) : []; // Ensure it's an array
 
     let html = '';
-    
-    // Render 5 Kolom Psikolog
-    for (let i = 1; i <= 5; i++) {
-        let keyPsikolog = `psikolog_${i}`;
-        let namaPsikolog = CONFIG[keyPsikolog] || `Psikolog ${i}`;
-        
-        // Cari peserta yang sedang "HADIR" atau "CONFIRMED"
-        let pesertaPsikologIni = ALL_DATA.filter(p => 
-            p.psikolog_bertugas === keyPsikolog && 
-            p.jadwal_hari === hariAktif &&
-            ['CONFIRMED', 'HADIR', 'SELESAI_FULL'].includes(p.status_peserta)
-        ).sort((a, b) => a.jadwal_sesi.localeCompare(b.jadwal_sesi));
+    const sesiList = ["09.00-09.45", "09.50-10.35", "10.40-11.25", "11.30-12.15", "13.15-14.00", "14.05-14.50", "14.55-15.40"];
 
-        // Pisahkan yang sedang di dalam (HADIR) dan yang antre (CONFIRMED)
-        let sedangBerlangsung = pesertaPsikologIni.find(p => p.status_peserta === 'HADIR');
-        let daftarAntrean = pesertaPsikologIni.filter(p => p.status_peserta === 'CONFIRMED').slice(0, 3); // Tampilkan maks 3 antrean berikutnya
+    // Start building the grid HTML
+    // Grid columns: 1 auto column for session times, then N columns for N psikologs
+    html += `<div class="grid grid-cols-[auto_repeat(${psikologListForDay.length},_minmax(0,_1fr))] gap-2 h-full w-full overflow-auto pb-4">`;
 
+    // Header row for Psikologs
+    html += `<div class="sticky top-0 left-0 bg-[#0B1A26] z-20 p-2"></div>`; // Empty top-left cell
+    psikologListForDay.forEach(namaPsikolog => {
         html += `
-            <div class="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col h-full relative overflow-hidden backdrop-blur-sm shadow-xl">
-                
-                <div class="mb-6 text-center border-b border-white/10 pb-4">
-                    <div class="w-16 h-16 mx-auto bg-brand-navy border-2 border-brand-gold/50 rounded-full flex items-center justify-center mb-3 shadow-[0_0_15px_rgba(221,168,83,0.2)]">
-                        <i class="ph ph-user-focus text-2xl text-brand-gold"></i>
-                    </div>
-                    <h2 class="text-xl font-bold text-white leading-tight">${namaPsikolog}</h2>
-                    <p class="text-xs text-gray-400 mt-1 uppercase tracking-widest">Bilik ${i}</p>
-                </div>
-
-                <div class="flex-1">
-                    <h3 class="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-3"><i class="ph ph-record text-red-500 animate-pulse"></i> Sedang Konseling</h3>
-                    ${sedangBerlangsung ? `
-                        <div class="bg-gradient-to-br from-brand-gold/20 to-transparent border border-brand-gold/30 rounded-2xl p-4 shadow-lg animate-fade-in-up">
-                            <p class="text-2xl font-black text-brand-gold truncate" title="${sedangBerlangsung.nama_lengkap}">${sensorNama(sedangBerlangsung.nama_lengkap)}</p>
-                            <div class="flex justify-between items-center mt-2">
-                                <p class="text-sm font-bold text-white bg-white/10 px-2 py-1 rounded inline-block"><i class="ph ph-clock text-brand-gold"></i> ${sedangBerlangsung.jadwal_sesi}</p>
-                                <span class="text-xs font-bold text-green-400 uppercase tracking-wider bg-green-400/10 px-2 py-1 rounded border border-green-400/30">Di Dalam</span>
-                            </div>
-                        </div>
-                    ` : `
-                        <div class="bg-white/5 border border-dashed border-white/20 rounded-2xl p-4 flex flex-col items-center justify-center h-28 opacity-50">
-                            <i class="ph ph-coffee text-3xl text-gray-400 mb-2"></i>
-                            <p class="text-sm font-medium text-gray-400">Bilik Kosong</p>
-                        </div>
-                    `}
-                </div>
-
-                <div class="mt-6 pt-5 border-t border-white/10">
-                    <h3 class="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-3"><i class="ph ph-list-numbers text-brand-blue"></i> Antrean Selanjutnya</h3>
-                    <div class="space-y-2">
-                        ${daftarAntrean.length > 0 ? daftarAntrean.map((p, index) => `
-                            <div class="bg-black/20 rounded-xl p-3 border border-white/5 flex justify-between items-center animate-fade-in-up" style="animation-delay: ${index * 100}ms">
-                                <div>
-                                    <p class="font-bold text-white text-sm truncate w-32" title="${p.nama_lengkap}">${sensorNama(p.nama_lengkap)}</p>
-                                    <p class="text-[10px] text-gray-400 mt-0.5">${p.asal_univ.substring(0, 15)}...</p>
-                                </div>
-                                <span class="text-xs font-bold text-brand-pink bg-brand-pink/10 px-2 py-1 rounded border border-brand-pink/20">${p.jadwal_sesi}</span>
-                            </div>
-                        `).join('') : `
-                            <p class="text-xs text-gray-500 text-center py-2 italic">Belum ada antrean</p>
-                        `}
-                    </div>
-                </div>
+            <div class="sticky top-0 bg-[#0B1A26] z-20 text-center p-2">
+                <p class="font-bold text-sm text-brand-gold leading-tight">${namaPsikolog.split(',')[0]}</p>
+                <p class="text-xs text-gray-400">${namaPsikolog.split(',')[1] || ''}</p>
             </div>
         `;
-    }
-    
-    if (grid) grid.innerHTML = html;
+    });
+
+    // Content rows for each session
+    sesiList.forEach(sesi => {
+        html += `
+            <div class="sticky left-0 bg-[#0B1A26] z-20 text-right pr-2 py-2 flex items-center justify-end">
+                <p class="font-bold text-sm text-gray-300">${sesi}</p>
+            </div>
+        `;
+        psikologListForDay.forEach(namaPsikolog => {
+            const peserta = ALL_DATA.find(p =>
+                p.jadwal_hari === hariAktif &&
+                p.jadwal_sesi === sesi &&
+                p.psikolog_bertugas === namaPsikolog &&
+                !['WAITING_LIST', 'BATAL'].includes(p.status_peserta)
+            );
+
+            let cardContent = '';
+            let cardClass = 'bg-white/5 border border-white/10';
+
+            if (peserta) {
+                const status = peserta.status_peserta;
+                let statusColor = 'text-gray-300';
+                let statusBg = 'bg-gray-700';
+
+                if (status === 'HADIR') {
+                    statusColor = 'text-green-400';
+                    statusBg = 'bg-green-700';
+                    cardClass = 'bg-gradient-to-br from-brand-gold/20 to-transparent border-brand-gold/30 shadow-lg';
+                } else if (status === 'CONFIRMED') {
+                    statusColor = 'text-blue-400';
+                    statusBg = 'bg-blue-700';
+                    cardClass = 'bg-gradient-to-br from-brand-blue/20 to-transparent border-brand-blue/30 shadow-md';
+                }
+
+                cardContent = `
+                    <p class="font-bold text-white text-sm leading-tight truncate">${sensorNama(peserta.nama_lengkap)}</p>
+                    <span class="text-xs ${statusColor} ${statusBg} px-1 rounded-md mt-1 inline-block">${status.replace('_', ' ')}</span>
+                `;
+            } else {
+                cardContent = `
+                    <p class="text-xs text-gray-500">Kosong</p>
+                `;
+                cardClass = 'bg-white/5 border border-dashed border-white/10 opacity-50';
+            }
+
+            html += `
+                <div class="p-2 rounded-lg text-center flex flex-col items-center justify-center h-20 ${cardClass} transition-all duration-300">
+                    ${cardContent}
+                </div>
+            `;
+        });
+    });
+
+    html += `</div>`; // Close grid
+    if (content) content.innerHTML = html;
 }
 
 // Fungsi Sensor Nama demi Privasi Layar Publik (Budi Santoso -> Budi S***)
@@ -171,4 +227,16 @@ function jalankanJamLokal() {
     };
     clockInterval = setInterval(renderClock, 1000);
     renderClock();
+}
+
+// Pastikan untuk menghentikan interval saat halaman tidak lagi dirender
+export function destroyDisplayPage() {
+    if (clockInterval) {
+        clearInterval(clockInterval);
+        clockInterval = null;
+    }
+    if (realtimeSubscription) {
+        supabase.removeChannel(realtimeSubscription);
+        realtimeSubscription = null;
+    }
 }
