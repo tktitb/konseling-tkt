@@ -24,7 +24,7 @@ export async function renderLandingPage(container) {
                         <i class="ph ph-lock-key text-4xl"></i>
                     </div>
                     <h2 class="text-2xl font-bold text-brand-navy mb-3">Pendaftaran Ditutup</h2>
-                    <p class="text-brand-navy/70 leading-relaxed">Mohon maaf, pendaftaran sesi konseling karier saat ini sedang tidak dibuka.</p>
+                    <p class="text-brand-navy/70 leading-relaxed">Mohon maaf, pendaftaran sesi konseling karier saat ini sudah di tutup.</p>
                 </div>
             </div>
         `;
