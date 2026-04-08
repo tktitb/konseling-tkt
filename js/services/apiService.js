@@ -35,7 +35,7 @@ export async function generateWhatsAppLink(templateKey, participantData) {
         message = message.replace(/{{jadwal_hari}}/g, participantData.jadwal_hari || '');
         message = message.replace(/{{jadwal_sesi}}/g, participantData.jadwal_sesi || '');
         message = message.replace(/{{psikolog_bertugas}}/g, participantData.psikolog_bertugas || 'Psikolog');
-        message = message.replace(/{{feedback_url}}/g, `https://tktitb.github.io/konseling-tkt/#/feedback`);
+        message = message.replace(/{{feedback_url}}/g, `https://bit.ly/FeedbackKonselingKarierTKTApril2026`);
 
         const waNumber = participantData.nomor_wa.startsWith('0') ? '62' + participantData.nomor_wa.substring(1) : participantData.nomor_wa;
         const encodedMessage = encodeURIComponent(message);
@@ -262,5 +262,55 @@ export async function submitFeedback(feedbackData) {
     } catch (err) {
         console.error("Error submitting feedback:", err);
         return { success: false, message: "Terjadi kesalahan pada sistem. Silakan coba lagi nanti." };
+    }
+}
+
+// ==========================================
+// FUNGSI KHUSUS PINDAH JADWAL
+// ==========================================
+export async function ubahJadwalPeserta(idPeserta, hariBaru, sesiBaru, psikologBaru, hariLama, sesiLama, psikologLama) {
+    try {
+        // 1. Pindahkan peserta ke jadwal baru
+        const { error } = await supabase
+            .from('peserta_konseling')
+            .update({
+                jadwal_hari: hariBaru,
+                jadwal_sesi: sesiBaru,
+                psikolog_bertugas: psikologBaru,
+                status_peserta: 'DAPAT_SESI' // Reset status jadi dapat sesi agar admin bisa konfirmasi ulang
+            })
+            .eq('id', idPeserta);
+        
+        if (error) throw error;
+
+        // 2. LOGIKA AUTO-PROMO: Karena peserta ini pindah, slot lamanya jadi kosong!
+        // Kita cari anak Waiting List di slot lama untuk dinaikkan.
+        let dipromosikan = null;
+        if (psikologLama) {
+            const { data: waitingList, error: wlError } = await supabase
+                .from('peserta_konseling')
+                .select('id, nama_lengkap')
+                .eq('jadwal_hari', hariLama)
+                .eq('jadwal_sesi', sesiLama)
+                .eq('status_peserta', 'WAITING_LIST')
+                .order('created_at', { ascending: true })
+                .limit(1);
+
+            if (!wlError && waitingList && waitingList.length > 0) {
+                dipromosikan = waitingList[0].nama_lengkap;
+                await supabase
+                    .from('peserta_konseling')
+                    .update({ 
+                        status_peserta: 'DAPAT_SESI',
+                        psikolog_bertugas: psikologLama 
+                    })
+                    .eq('id', waitingList[0].id);
+            }
+        }
+
+        return { success: true, dipromosikan: dipromosikan };
+    } catch (err) {
+        console.error(err);
+        return { success: false, message: err.message };
     }
 }

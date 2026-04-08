@@ -1,5 +1,5 @@
-// File: frontend/js/pages/AdminPage.js
-import { getSemuaPeserta, getSystemConfig, toggleStatusPendaftaran, updateStatusPesertaDenganAutoPromo, generateWhatsAppLink, ubahJadwalPeserta } from '../services/apiService.js';
+// File: frontend/js/pages/adminpage.js
+import { getSemuaPeserta, getSystemConfig, toggleStatusPendaftaran, updateStatusPesertaDenganAutoPromo, generateWhatsAppLink } from '../services/apiService.js';
 
 // ==========================================
 // STATE GLOBAL ADMIN
@@ -52,11 +52,8 @@ export async function renderAdminPage(container) {
             </aside>
 
             <main class="flex-1 flex flex-col h-full overflow-hidden bg-brand-base relative">
-                
                 <header class="bg-white px-4 md:px-8 py-4 border-b border-gray-200 flex justify-between items-center shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] z-10 shrink-0">
-                    <button id="hamburger-btn" class="md:hidden p-2 text-brand-navy text-2xl">
-                        <i class="ph ph-list"></i>
-                    </button>
+                    <button id="hamburger-btn" class="md:hidden p-2 text-brand-navy text-2xl"><i class="ph ph-list"></i></button>
                     <div>
                         <h1 class="text-xl md:text-2xl font-bold text-brand-navy" id="header-title">Dashboard Analitik</h1>
                         <p class="text-sm text-gray-500" id="header-desc">Ringkasan statistik dan performa pendaftaran sesi.</p>
@@ -70,14 +67,10 @@ export async function renderAdminPage(container) {
                 </header>
 
                 <div id="loading-admin" class="absolute inset-0 flex items-center justify-center bg-brand-base/80 z-50 backdrop-blur-sm transition-opacity duration-300">
-                    <div class="flex flex-col items-center gap-3 bg-white p-6 rounded-2xl shadow-elegant">
-                        <i class="ph ph-spinner animate-spin text-4xl text-brand-pink"></i>
-                        <p class="font-bold text-brand-navy tracking-wide">Sinkronisasi Data...</p>
-                    </div>
+                    <div class="flex flex-col items-center gap-3 bg-white p-6 rounded-2xl shadow-elegant"><i class="ph ph-spinner animate-spin text-4xl text-brand-pink"></i><p class="font-bold text-brand-navy tracking-wide">Sinkronisasi Data...</p></div>
                 </div>
 
-                <div id="admin-content" class="flex-1 overflow-auto p-6 md:p-8 scroll-smooth">
-                    </div>
+                <div id="admin-content" class="flex-1 overflow-auto p-6 md:p-8 scroll-smooth"></div>
             </main>
 
             <div id="detail-modal" class="fixed inset-0 bg-brand-navy/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
@@ -87,8 +80,7 @@ export async function renderAdminPage(container) {
                         <h3 class="text-xl font-bold relative z-10 flex items-center gap-2"><i class="ph ph-identification-card text-brand-pink"></i> Profil Peserta</h3>
                         <button id="close-modal" class="text-white/70 hover:text-white text-2xl relative z-10 transition-transform hover:rotate-90"><i class="ph ph-x"></i></button>
                     </div>
-                    <div id="modal-body" class="p-8 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 text-sm">
-                        </div>
+                    <div id="modal-body" class="p-8 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 text-sm"></div>
                 </div>
             </div>
 
@@ -96,11 +88,11 @@ export async function renderAdminPage(container) {
                 <div class="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden scale-95 transition-transform duration-300 transform" id="confirm-status-modal-card">
                     <div class="bg-brand-navy p-6 flex justify-between items-center text-white relative overflow-hidden">
                         <div class="absolute right-0 top-0 w-32 h-32 bg-brand-gold/20 rounded-full blur-2xl -translate-y-10"></div>
-                        <h3 class="text-xl font-bold relative z-10 flex items-center gap-2"><i class="ph ph-warning-circle text-brand-gold"></i> Konfirmasi Perubahan Status</h3>
+                        <h3 class="text-xl font-bold relative z-10 flex items-center gap-2"><i class="ph ph-warning-circle text-brand-gold"></i> Konfirmasi Perubahan</h3>
                         <button id="close-confirm-status-modal" class="text-white/70 hover:text-white text-2xl relative z-10 transition-transform hover:rotate-90"><i class="ph ph-x"></i></button>
                     </div>
                     <div class="p-8 text-center">
-                        <p class="text-brand-navy text-lg font-semibold mb-6" id="confirm-status-message">Anda yakin ingin mengubah status peserta ini?</p>
+                        <p class="text-brand-navy text-lg font-semibold mb-6" id="confirm-status-message"></p>
                         <div class="flex justify-center gap-4">
                             <button id="confirm-status-yes" class="px-6 py-3 bg-brand-pink hover:bg-brand-pinkdark text-white rounded-xl font-bold transition-colors shadow-md">Ya, Ubah Status</button>
                             <button id="confirm-status-no" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-brand-navy rounded-xl font-bold transition-colors shadow-md">Tidak, Kembali</button>
@@ -126,11 +118,9 @@ export async function renderAdminPage(container) {
                 </div>
             </div>
 
-            <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-2">
-            </div>
+            <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-2"></div>
         </div>
     `;
-
     await initAdminData();
 }
 
@@ -327,7 +317,6 @@ function renderAnalyticsView(container) {
 // ==========================================================
 async function renderBoardView(container) {
     const days = [...new Set(ALL_DATA.map(p => p.jadwal_hari))].filter(Boolean);
-    
     if (days.length === 0) {
         container.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400"><i class="ph ph-calendar-blank text-6xl mb-4"></i><p>Belum ada data pendaftar untuk ditampilkan di Papan Jadwal.</p></div>`;
         return;
@@ -335,68 +324,46 @@ async function renderBoardView(container) {
 
     let html = `<div class="space-y-10 animate-fade-in-up">`;
     const sesiList = ["09.00-09.45", "09.50-10.35", "10.40-11.25", "11.30-12.15", "13.15-14.00", "14.05-14.50", "14.55-15.40"];
-
+    
     for (const day of days) {
         html += `<div class="bg-white rounded-[24px] shadow-elegant border border-gray-100 p-8">
                     <h2 class="text-2xl font-black text-brand-navy border-b-2 border-brand-pink inline-block pb-2 mb-8"><i class="ph ph-calendar-check text-brand-pink"></i> Jadwal: ${day}</h2>
                     <div class="space-y-8">`;
         
         let psikologListKey;
-        if (day === CONFIG.tanggal_kegiatan_1) {
-            psikologListKey = 'psikolog_list_1';
-        } else if (day === CONFIG.tanggal_kegiatan_2) {
-            psikologListKey = 'psikolog_list_2';
-        }
+        if (day === CONFIG.tanggal_kegiatan_1) psikologListKey = 'psikolog_list_1';
+        else if (day === CONFIG.tanggal_kegiatan_2) psikologListKey = 'psikolog_list_2';
+        
         const psikologListForDay = (psikologListKey && CONFIG[psikologListKey]) ? JSON.parse(CONFIG[psikologListKey]) : [];
-
-        let noPsikolog = 1; // [UPDATE] Variabel Penomoran Psikolog
-
+        
+        let noPsikolog = 1; // [UPDATE]: Variabel penomoran untuk Psikolog
         for (const namaPsikolog of psikologListForDay) {
-            
             html += `
                 <div class="bg-[#FDF8EE] rounded-2xl p-6 border border-brand-gold/20 shadow-sm relative overflow-hidden">
                     <div class="absolute left-0 top-0 w-2 h-full bg-brand-gold"></div>
                     <h3 class="font-bold text-brand-navy text-lg mb-4 flex items-center gap-2 pl-2">
                         <i class="ph ph-user-focus text-brand-gold text-2xl"></i> ${noPsikolog}. ${namaPsikolog}
                     </h3>
-                    
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             `;
-            
-            noPsikolog++; // [UPDATE] Increment nomor untuk psikolog berikutnya
+            noPsikolog++; // [UPDATE]: Tambah angka urutan setiap ganti psikolog
 
             for (const sesi of sesiList) {
-                // Cari peserta di Hari ini, Psikolog ini, dan Jam Sesi ini
                 let penghuni = ALL_DATA.find(p => p.jadwal_hari === day && p.psikolog_bertugas === namaPsikolog && p.jadwal_sesi === sesi && !['WAITING_LIST', 'BATAL'].includes(p.status_peserta));
-
                 if (penghuni) {
                     let badgeColor = penghuni.status_peserta === 'CONFIRMED' ? 'text-green-700 bg-green-100 border-green-200' : 
-                                     ['HADIR', 'SELESAI_FULL'].includes(penghuni.status_peserta) ? 'text-brand-base bg-brand-navy border-brand-navy' : 
-                                     'text-brand-blue bg-blue-50 border-blue-200';
+                                     ['HADIR', 'SELESAI_FULL'].includes(penghuni.status_peserta) ? 'text-brand-base bg-brand-navy border-brand-navy' : 'text-brand-blue bg-blue-50 border-blue-200';
                     
-                    const waLink = await generateWhatsAppLink('wa_template_konfirmasi_sesi', penghuni) || '#';
-
-                    let feedbackButtonHTML = '';
-                    if (penghuni.status_peserta === 'HADIR') {
-                        const feedbackWaLink = await generateWhatsAppLink('wa_template_minta_feedback', penghuni) || '#';
-                        feedbackButtonHTML = `
-                            <a href="${feedbackWaLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
-                                <i class="ph ph-chat-centered-text text-lg"></i>
-                            </a>
-                        `;
-                    }
+                    // Tombol WA cepat di dalam Card
+                    let waLink = penghuni.nomor_wa.startsWith('0') ? '62' + penghuni.nomor_wa.substring(1) : penghuni.nomor_wa;
+                    let pesanWa = encodeURIComponent(`Halo ${penghuni.nama_lengkap}, dari Panitia Konseling. Mengonfirmasi jadwal Anda pada ${day} pukul ${sesi} bersama ${namaPsikolog}.`);
 
                     html += `
                         <div class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:border-brand-pink transition-colors group relative">
                             <div>
                                 <div class="flex justify-between items-start mb-2">
                                     <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border ${badgeColor}">${penghuni.status_peserta.replace('_', ' ')}</span>
-                                    <div class="flex items-center gap-1">
-                                        <a href="${waLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Chat WA">
-                                            <i class="ph ph-whatsapp-logo text-lg"></i> 
-                                        </a>
-                                        ${feedbackButtonHTML}
-                                    </div>
+                                    <a href="https://wa.me/${waLink}?text=${pesanWa}" target="_blank" class="text-green-500 hover:text-green-600 bg-green-50 hover:bg-green-100 p-1 rounded transition-colors" title="Chat WA"><i class="ph ph-whatsapp-logo text-lg"></i></a>
                                 </div>
                                 <p class="text-[11px] font-bold text-gray-400 mb-0.5"><i class="ph ph-clock"></i> ${sesi}</p>
                                 <p class="font-bold text-brand-navy text-sm leading-tight mb-1 truncate cursor-pointer hover:text-brand-pink" onclick="window.bukaDetail('${penghuni.id}')">${penghuni.nama_lengkap}</p>
@@ -404,12 +371,10 @@ async function renderBoardView(container) {
                         </div>
                     `;
                 } else {
-                    html += `
-                        <div class="bg-white/50 p-3.5 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-center opacity-60">
-                            <p class="text-[11px] font-bold text-gray-400 mb-1"><i class="ph ph-clock"></i> ${sesi}</p>
-                            <p class="text-xs text-gray-500 font-medium">Slot Kosong</p>
-                        </div>
-                    `;
+                    html += `<div class="bg-white/50 p-3.5 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-center opacity-60">
+                                <p class="text-[11px] font-bold text-gray-400 mb-1"><i class="ph ph-clock"></i> ${sesi}</p>
+                                <p class="text-xs text-gray-500 font-medium">Slot Kosong</p>
+                            </div>`;
                 }
             }
             html += `</div></div>`;
@@ -439,51 +404,39 @@ function renderTableView(container) {
             <div class="p-5 border-b border-gray-100 flex flex-wrap gap-4 justify-between bg-gray-50/50 items-center">
                 <div class="relative w-full md:w-72">
                     <i class="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
-                    <input type="text" id="search-input" placeholder="Cari nama peserta..." value="${searchQuery}"
-                        class="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 outline-none text-sm font-medium transition-all">
+                    <input type="text" id="search-input" placeholder="Cari nama peserta..." value="${searchQuery}" class="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 outline-none text-sm font-medium transition-all">
                 </div>
                 <div class="flex gap-2">
                     <select id="filter-status" class="px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold outline-none focus:border-brand-pink cursor-pointer bg-white">
                         <option value="ALL" ${filterStatus === 'ALL' ? 'selected' : ''}>📋 Semua Status</option>
-                        <option value="DAPAT_SESI" ${filterStatus === 'DAPAT_SESI' ? 'selected' : ''}>Dapat Sesi (Belum Konfirmasi)</option>
-                        <option value="WAITING_LIST" ${filterStatus === 'WAITING_LIST' ? 'selected' : ''}>Waiting List (Antre)</option>
-                        <option value="CONFIRMED" ${filterStatus === 'CONFIRMED' ? 'selected' : ''}>Confirmed (Siap Hadir)</option>
-                        <option value="HADIR" ${filterStatus === 'HADIR' ? 'selected' : ''}>📍 Hadir (Sesi Berjalan)</option>
+                        <option value="DAPAT_SESI" ${filterStatus === 'DAPAT_SESI' ? 'selected' : ''}>Dapat Sesi</option>
+                        <option value="WAITING_LIST" ${filterStatus === 'WAITING_LIST' ? 'selected' : ''}>Waiting List</option>
+                        <option value="CONFIRMED" ${filterStatus === 'CONFIRMED' ? 'selected' : ''}>Confirmed</option>
+                        <option value="HADIR" ${filterStatus === 'HADIR' ? 'selected' : ''}>📍 Hadir</option>
                         <option value="SELESAI_FULL" ${filterStatus === 'SELESAI_FULL' ? 'selected' : ''}>🏁 Selesai (Feedback)</option>
                         <option value="BATAL" ${filterStatus === 'BATAL' ? 'selected' : ''}>Batal / Ditolak</option>
                     </select>
                 </div>
             </div>
-
             <div class="overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse whitespace-nowrap">
                     <thead>
                         <tr class="bg-brand-navy text-white text-xs uppercase tracking-wider select-none">
                             <th class="px-5 py-4 font-bold text-center w-12">No.</th>
-                            <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group" onclick="window.sortData('nama_lengkap')">
-                                Nama Peserta <i class="ph ${sortCol === 'nama_lengkap' ? (sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'} text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
-                            </th>
-                            <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group" onclick="window.sortData('jadwal_hari')">
-                                Jadwal & Psikolog <i class="ph ${sortCol === 'jadwal_hari' ? (sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'} text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
-                            </th>
-                            <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group text-center" onclick="window.sortData('status_peserta')">
-                                Status <i class="ph ${sortCol === 'status_peserta' ? (sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'} text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
-                            </th>
+                            <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group" onclick="window.sortData('nama_lengkap')">Nama <i class="ph ph-caret-up-down text-gray-400 ml-1"></i></th>
+                            <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group" onclick="window.sortData('jadwal_hari')">Jadwal & Psikolog <i class="ph ph-caret-up-down text-gray-400 ml-1"></i></th>
+                            <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group text-center" onclick="window.sortData('status_peserta')">Status <i class="ph ph-caret-up-down text-gray-400 ml-1"></i></th>
                             <th class="px-6 py-4 font-bold text-center">Aksi Cepat</th>
                         </tr>
                     </thead>
-                    <tbody id="table-body" class="divide-y divide-gray-100 text-sm">
-                        </tbody>
+                    <tbody id="table-body" class="divide-y divide-gray-100 text-sm"></tbody>
                 </table>
             </div>
-            
             <div class="p-5 border-t border-gray-100 flex justify-between items-center bg-gray-50/80" id="pagination-controls"></div>
         </div>
     `;
-
     document.getElementById('search-input').addEventListener('input', (e) => { searchQuery = e.target.value; currentPage = 1; updateTableRows(); });
     document.getElementById('filter-status').addEventListener('change', (e) => { filterStatus = e.target.value; currentPage = 1; updateTableRows(); });
-
     updateTableRows();
 }
 
@@ -491,37 +444,28 @@ async function updateTableRows() {
     const tbody = document.getElementById('table-body');
     const pagination = document.getElementById('pagination-controls');
 
-    // 1. Filtering
     let filteredData = ALL_DATA.filter(p => {
         const matchSearch = p.nama_lengkap.toLowerCase().includes(searchQuery.toLowerCase());
         const matchStatus = filterStatus === 'ALL' || p.status_peserta === filterStatus;
         return matchSearch && matchStatus;
     });
 
-    // 2. Sorting
     filteredData.sort((a, b) => {
-        let valA = a[sortCol] || '';
-        let valB = b[sortCol] || '';
-        if (typeof valA === 'string') valA = valA.toLowerCase();
-        if (typeof valB === 'string') valB = valB.toLowerCase();
-        
+        let valA = (a[sortCol] || '').toLowerCase(); let valB = (b[sortCol] || '').toLowerCase();
         if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-        if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-        return 0;
+        if (valA > valB) return sortDir === 'asc' ? 1 : -1; return 0;
     });
 
-    // 3. Paging
     const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
     let rowsHTML = '';
     if (paginatedData.length === 0) {
-        rowsHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-gray-400"><i class="ph ph-magnifying-glass text-4xl mb-2"></i><br>Data tidak ditemukan.</td></tr>`;
+        rowsHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-gray-400">Data tidak ditemukan.</td></tr>`;
     } else {
         for (const [index, p] of paginatedData.entries()) {
-            const absoluteIndex = startIndex + index + 1; // Penomoran Akurat
-
+            const absoluteIndex = startIndex + index + 1;
             let badgeClass = 'bg-gray-100 text-gray-700';
             if (p.status_peserta === 'DAPAT_SESI') badgeClass = 'bg-blue-50 text-blue-700 border border-blue-200';
             if (p.status_peserta === 'WAITING_LIST') badgeClass = 'bg-yellow-50 text-yellow-700 border border-yellow-200';
@@ -529,42 +473,33 @@ async function updateTableRows() {
             if (p.status_peserta === 'BATAL') badgeClass = 'bg-red-50 text-red-700 border border-red-200';
             if (['HADIR', 'SELESAI_FULL'].includes(p.status_peserta)) badgeClass = 'bg-brand-navy text-brand-base border border-brand-navy';
             
-            const waLink = await generateWhatsAppLink(p.status_peserta === 'WAITING_LIST' ? 'wa_template_waiting_list' : 'wa_template_konfirmasi_sesi', p) || '#'; 
+            // Format WA untuk tombol chat
+            let waNumber = p.nomor_wa.startsWith('0') ? '62' + p.nomor_wa.substring(1) : p.nomor_wa;
+            let pesanWa = encodeURIComponent(`Halo ${p.nama_lengkap}, dari Panitia Konseling. Mengonfirmasi jadwal Anda pada ${p.jadwal_hari} pukul ${p.jadwal_sesi}.`);
+            let waLink = `https://wa.me/${waNumber}?text=${pesanWa}`;
 
             rowsHTML += `
                 <tr class="hover:bg-brand-base/40 transition-colors group">
                     <td class="px-5 py-4 text-center font-bold text-gray-400 group-hover:text-brand-pink">${absoluteIndex}</td>
-                    <td class="px-6 py-4">
-                        <p class="font-bold text-brand-navy text-base">${p.nama_lengkap}</p>
-                        <p class="text-xs text-gray-500 font-medium tracking-wide">${p.nomor_wa}</p>
-                    </td>
+                    <td class="px-6 py-4"><p class="font-bold text-brand-navy">${p.nama_lengkap}</p><p class="text-xs text-gray-500">${p.nomor_wa}</p></td>
                     <td class="px-6 py-4">
                         <p class="font-bold text-brand-navy text-xs mb-0.5">${p.jadwal_hari}</p>
-                        <p class="text-brand-pink font-bold text-[11px] bg-brand-pink/10 inline-block px-1.5 py-0.5 rounded">
-                            <i class="ph ph-clock"></i> ${p.jadwal_sesi} 
-                            <span class="text-brand-blue ml-1">(${p.psikolog_bertugas || 'Antre'})</span>
-                        </p>
+                        <p class="text-brand-pink font-bold text-[11px] bg-brand-pink/10 inline-block px-1.5 py-0.5 rounded"><i class="ph ph-clock"></i> ${p.jadwal_sesi} <span class="text-brand-blue ml-1">(${p.psikolog_bertugas || 'Antre'})</span></p>
                     </td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="inline-block px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider ${badgeClass}">${p.status_peserta.replace('_', ' ')}</span>
-                    </td>
+                    <td class="px-6 py-4 text-center"><span class="inline-block px-3 py-1 rounded text-[10px] font-black uppercase ${badgeClass}">${p.status_peserta.replace('_', ' ')}</span></td>
                     <td class="px-6 py-4">
-                        <div class="flex items-center justify-center gap-2">
-                            <button onclick="window.bukaDetail('${p.id}')" class="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-brand-navy rounded-xl font-bold transition-transform hover:scale-105" title="Lihat Profil"><i class="ph ph-identification-card text-lg"></i></button>
+                        <div class="flex items-center justify-center gap-1.5">
+                            <button onclick="window.bukaDetail('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-brand-navy rounded-lg font-bold" title="Profil"><i class="ph ph-identification-card text-lg"></i></button>
                             
-                            <button onclick="window.bukaModalReschedule('${p.id}')" class="w-9 h-9 flex items-center justify-center bg-brand-gold/10 hover:bg-brand-gold/20 text-brand-gold rounded-xl font-bold transition-transform hover:scale-105" title="Pindah Jadwal"><i class="ph ph-calendar-edit text-lg"></i></button>
+                            <a href="${waLink}" target="_blank" class="w-8 h-8 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold shadow-sm transition-transform hover:scale-105" title="Kirim WA"><i class="ph ph-whatsapp-logo text-lg"></i></a>
 
-                            <a href="${waLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Kirim WA"><i class="ph ph-whatsapp-logo text-lg"></i></a>
-                            ${p.status_peserta === 'HADIR' ? `
-                                <a href="${await generateWhatsAppLink('wa_template_minta_feedback', p) || '#'}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
-                                    <i class="ph ph-chat-centered-text text-lg"></i>
-                                </a>
-                            ` : ''}
-                            <select class="status-selector text-[11px] bg-white border border-gray-300 rounded-xl px-2 py-2 outline-none focus:border-brand-pink cursor-pointer font-bold text-brand-navy transition-colors hover:border-gray-400"
+                            <button onclick="window.bukaModalReschedule('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-brand-gold/10 hover:bg-brand-gold/20 text-brand-gold rounded-lg font-bold transition-transform" title="Pindah Jadwal"><i class="ph ph-calendar-edit text-lg"></i></button>
+                            
+                            <select class="status-selector text-[11px] bg-white border border-gray-300 rounded-lg px-1 py-1.5 outline-none focus:border-brand-pink cursor-pointer font-bold text-brand-navy w-24"
                                 data-id="${p.id}" data-hari="${p.jadwal_hari}" data-sesi="${p.jadwal_sesi}">
                                 <option value="" disabled selected>Ubah Status</option>
                                 <option value="CONFIRMED">✅ Confirmed</option>
-                                <option value="HADIR">📍 Hadir (Hari H)</option>                                
+                                <option value="HADIR">📍 Hadir</option>                                
                                 <option value="BATAL">❌ Batal/Kick</option>
                             </select>
                         </div>
@@ -574,25 +509,14 @@ async function updateTableRows() {
         }
     }
     tbody.innerHTML = rowsHTML;
+    pagination.innerHTML = `<span class="text-sm font-semibold">Hal. ${currentPage} dari ${totalPages} (Total ${filteredData.length})</span>
+        <div class="flex gap-2"><button onclick="window.ubahPage(-1)" class="px-4 py-1 border rounded ${currentPage===1?'opacity-50':''}" ${currentPage===1?'disabled':''}>Prev</button><button onclick="window.ubahPage(1)" class="px-4 py-1 border rounded ${currentPage===totalPages?'opacity-50':''}" ${currentPage===totalPages?'disabled':''}>Next</button></div>`;
 
-    pagination.innerHTML = `
-        <span class="text-sm text-gray-500 font-semibold bg-white px-4 py-2 rounded-xl border border-gray-200">Halaman <span class="text-brand-navy">${currentPage}</span> dari ${totalPages} <span class="mx-2">|</span> Total <span class="text-brand-pink">${filteredData.length}</span> Data</span>
-        <div class="flex gap-2">
-            <button onclick="window.ubahPage(-1)" class="px-5 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-brand-navy hover:bg-gray-50 transition-colors shadow-sm ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${currentPage === 1 ? 'disabled' : ''}>Prev</button>
-            <button onclick="window.ubahPage(1)" class="px-5 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-brand-navy hover:bg-gray-50 transition-colors shadow-sm ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}" ${currentPage === totalPages ? 'disabled' : ''}>Next</button>
-        </div>
-    `;
-
-    // Attach Status Selector Logic (Panggil API + Re-render)
     document.querySelectorAll('.status-selector').forEach(sel => {
         sel.addEventListener('change', (e) => {
-            const id = e.target.dataset.id;
-            const hari = e.target.dataset.hari;
-            const sesi = e.target.dataset.sesi;
-            const statusBaru = e.target.value;
+            const id = e.target.dataset.id; const hari = e.target.dataset.hari; const sesi = e.target.dataset.sesi; const statusBaru = e.target.value;
             const namaPeserta = e.target.closest('tr').querySelector('td:nth-child(2) p:first-child').innerText;
             const originalStatus = ALL_DATA.find(p => p.id === id).status_peserta;
-
             showConfirmationModal(id, namaPeserta, statusBaru, hari, sesi, originalStatus, e.target);
         });
     });
@@ -643,98 +567,7 @@ function closeConfirmStatusModal() {
 }
 
 // ==========================================================
-// LOGIKA PINDAH JADWAL (Mencari Slot Kosong)
-// ==========================================================
-window.bukaModalReschedule = (id) => {
-    const p = ALL_DATA.find(x => x.id === id);
-    if(!p) return;
-
-    document.getElementById('reschedule-nama').innerText = p.nama_lengkap;
-    document.getElementById('reschedule-id').value = p.id;
-
-    const sesiList = ["09.00-09.45", "09.50-10.35", "10.40-11.25", "11.30-12.15", "13.15-14.00", "14.05-14.50", "14.55-15.40"];
-    const days = [CONFIG.tanggal_kegiatan_1, CONFIG.tanggal_kegiatan_2].filter(Boolean);
-    
-    let optionsHTML = '<option value="" disabled selected>Pilih Jadwal Baru yang Kosong...</option>';
-    let slotKetemu = false;
-
-    days.forEach(day => {
-        const psikologListKey = day === CONFIG.tanggal_kegiatan_1 ? 'psikolog_list_1' : 'psikolog_list_2';
-        const psikologList = JSON.parse(CONFIG[psikologListKey] || '[]');
-
-        sesiList.forEach(sesi => {
-            const taken = ALL_DATA.filter(x => 
-                x.jadwal_hari === day && 
-                x.jadwal_sesi === sesi && 
-                ['DAPAT_SESI', 'CONFIRMED', 'HADIR', 'SELESAI_FULL'].includes(x.status_peserta)
-            );
-
-            if (taken.length < psikologList.length) {
-                if (!(p.jadwal_hari === day && p.jadwal_sesi === sesi)) {
-                    const takenPsikologs = taken.map(t => t.psikolog_bertugas);
-                    const freePsikolog = psikologList.find(psi => !takenPsikologs.includes(psi));
-                    
-                    if(freePsikolog) {
-                        const sisaSlot = psikologList.length - taken.length;
-                        optionsHTML += `<option value="${day}|${sesi}|${freePsikolog}">${day} - Pukul ${sesi} (Sisa ${sisaSlot} slot)</option>`;
-                        slotKetemu = true;
-                    }
-                }
-            }
-        });
-    });
-
-    if (!slotKetemu) {
-        optionsHTML = '<option value="" disabled selected>Semua slot sudah penuh!</option>';
-    }
-
-    document.getElementById('reschedule-select').innerHTML = optionsHTML;
-
-    const modal = document.getElementById('reschedule-modal');
-    const card = document.getElementById('reschedule-modal-card');
-    modal.classList.remove('hidden');
-    setTimeout(() => { modal.classList.remove('opacity-0'); card.classList.remove('scale-95'); }, 10);
-};
-
-window.tutupModalReschedule = () => {
-    const modal = document.getElementById('reschedule-modal');
-    const card = document.getElementById('reschedule-modal-card');
-    modal.classList.add('opacity-0');
-    card.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
-};
-
-window.submitReschedule = async () => {
-    const id = document.getElementById('reschedule-id').value;
-    const valueData = document.getElementById('reschedule-select').value;
-    
-    if(!valueData) {
-        showToast("Silakan pilih jadwal baru terlebih dahulu", "error");
-        return;
-    }
-
-    const [hariBaru, sesiBaru, psikologBaru] = valueData.split('|');
-    const pesertaLama = ALL_DATA.find(x => x.id === id);
-
-    document.getElementById('loading-admin').classList.remove('hidden');
-    
-    const res = await ubahJadwalPeserta(id, hariBaru, sesiBaru, psikologBaru, pesertaLama.jadwal_hari, pesertaLama.jadwal_sesi, pesertaLama.psikolog_bertugas);
-    
-    if (res.success) {
-        window.tutupModalReschedule();
-        showToast("Jadwal peserta berhasil dipindah!", "success");
-        if(res.dipromosikan) {
-            alert(`SISTEM AUTO-PROMO:\nKabar baik! Karena jadwal dipindah, anak Waiting List bernama [${res.dipromosikan}] otomatis naik untuk mengisi slot lama yang baru saja kosong.`);
-        }
-        await initAdminData(); 
-    } else {
-        showToast("Gagal memindah jadwal: " + res.message, "error");
-        document.getElementById('loading-admin').classList.add('hidden');
-    }
-};
-
-// ==========================================================
-// FUNGSI GLOBAL & MODAL DETAIL
+// FUNGSI GLOBAL & MODAL
 // ==========================================================
 window.ubahPage = (dir) => { currentPage += dir; updateTableRows(); };
 
@@ -809,10 +642,15 @@ function showToast(message, type = 'info') {
 
     const toast = document.createElement('div');
     const icon = type === 'success' ? 'ph-check-circle' : 'ph-x-circle';
-    const colors = type === 'success' ? 'bg-green-500 border-green-600' : 'bg-red-500 border-red-600';
+    const colors = type === 'success' 
+        ? 'bg-green-500 border-green-600' 
+        : 'bg-red-500 border-red-600';
 
     toast.className = `flex items-center gap-3 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg border ${colors} animate-fade-in-up`;
-    toast.innerHTML = `<i class="ph ${icon} text-xl"></i><span>${message}</span>`;
+    toast.innerHTML = `
+        <i class="ph ${icon} text-xl"></i>
+        <span>${message}</span>
+    `;
 
     container.appendChild(toast);
 
@@ -821,3 +659,103 @@ function showToast(message, type = 'info') {
         setTimeout(() => toast.remove(), 500);
     }, 4000);
 }
+
+// ==========================================================
+// LOGIKA PINDAH JADWAL (Mencari Slot Kosong)
+// ==========================================================
+import { ubahJadwalPeserta } from '../services/apiService.js'; // Pastikan untuk memanggil API yang baru dibuat
+
+window.bukaModalReschedule = (id) => {
+    const p = ALL_DATA.find(x => x.id === id);
+    if(!p) return;
+
+    document.getElementById('reschedule-nama').innerText = p.nama_lengkap;
+    document.getElementById('reschedule-id').value = p.id;
+
+    // Hitung Slot Kosong Dinamis dari ALL_DATA
+    const sesiList = ["09.00-09.45", "09.50-10.35", "10.40-11.25", "11.30-12.15", "13.15-14.00", "14.05-14.50", "14.55-15.40"];
+    const days = [CONFIG.tanggal_kegiatan_1, CONFIG.tanggal_kegiatan_2].filter(Boolean);
+    
+    let optionsHTML = '<option value="" disabled selected>Pilih Jadwal Baru yang Kosong...</option>';
+    let slotKetemu = false;
+
+    days.forEach(day => {
+        const psikologListKey = day === CONFIG.tanggal_kegiatan_1 ? 'psikolog_list_1' : 'psikolog_list_2';
+        const psikologList = JSON.parse(CONFIG[psikologListKey] || '[]');
+
+        sesiList.forEach(sesi => {
+            // Berapa orang yang sudah terdaftar di hari & sesi ini?
+            const taken = ALL_DATA.filter(x => 
+                x.jadwal_hari === day && 
+                x.jadwal_sesi === sesi && 
+                ['DAPAT_SESI', 'CONFIRMED', 'HADIR', 'SELESAI_FULL'].includes(x.status_peserta)
+            );
+
+            // Jika yang terdaftar < total psikolog (artinya ada bilik yang kosong)
+            if (taken.length < psikologList.length) {
+                // Jangan tampilkan slot yang saat ini sedang dia tempati
+                if (!(p.jadwal_hari === day && p.jadwal_sesi === sesi)) {
+                    // Cari psikolog mana yang nganggur di jam itu
+                    const takenPsikologs = taken.map(t => t.psikolog_bertugas);
+                    const freePsikolog = psikologList.find(psi => !takenPsikologs.includes(psi));
+                    
+                    if(freePsikolog) {
+                        const sisaSlot = psikologList.length - taken.length;
+                        optionsHTML += `<option value="${day}|${sesi}|${freePsikolog}">${day} - Pukul ${sesi} (Sisa ${sisaSlot} slot)</option>`;
+                        slotKetemu = true;
+                    }
+                }
+            }
+        });
+    });
+
+    if (!slotKetemu) {
+        optionsHTML = '<option value="" disabled selected>Semua slot sudah penuh!</option>';
+    }
+
+    document.getElementById('reschedule-select').innerHTML = optionsHTML;
+
+    // Tampilkan Modal
+    const modal = document.getElementById('reschedule-modal');
+    const card = document.getElementById('reschedule-modal-card');
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.classList.remove('opacity-0'); card.classList.remove('scale-95'); }, 10);
+};
+
+window.tutupModalReschedule = () => {
+    const modal = document.getElementById('reschedule-modal');
+    const card = document.getElementById('reschedule-modal-card');
+    modal.classList.add('opacity-0');
+    card.classList.add('scale-95');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+};
+
+window.submitReschedule = async () => {
+    const id = document.getElementById('reschedule-id').value;
+    const valueData = document.getElementById('reschedule-select').value;
+    
+    if(!valueData) {
+        showToast("Silakan pilih jadwal baru terlebih dahulu", "error");
+        return;
+    }
+
+    const [hariBaru, sesiBaru, psikologBaru] = valueData.split('|');
+    const pesertaLama = ALL_DATA.find(x => x.id === id);
+
+    document.getElementById('loading-admin').classList.remove('hidden');
+    
+    // Panggil API
+    const res = await ubahJadwalPeserta(id, hariBaru, sesiBaru, psikologBaru, pesertaLama.jadwal_hari, pesertaLama.jadwal_sesi, pesertaLama.psikolog_bertugas);
+    
+    if (res.success) {
+        window.tutupModalReschedule();
+        showToast("Jadwal peserta berhasil dipindah!", "success");
+        if(res.dipromosikan) {
+            alert(`SISTEM AUTO-PROMO:\nKabar baik! Karena jadwal dipindah, anak Waiting List bernama [${res.dipromosikan}] otomatis naik untuk mengisi slot lama yang baru saja kosong.`);
+        }
+        await initAdminData(); // Refresh semua data di layar admin
+    } else {
+        showToast("Gagal memindah jadwal: " + res.message, "error");
+        document.getElementById('loading-admin').classList.add('hidden');
+    }
+};
