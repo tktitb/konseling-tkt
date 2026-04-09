@@ -1,12 +1,12 @@
 // File: frontend/js/pages/AdminPage.js
-import { getSemuaPeserta, getSystemConfig, toggleStatusPendaftaran, updateStatusPesertaDenganAutoPromo, generateWhatsAppLink, ubahJadwalPeserta } from '../services/apiService.js';
+import { getSemuaPeserta, getSystemConfig, toggleStatusPendaftaran, updateStatusPesertaDenganAutoPromo, ubahJadwalPeserta } from '../services/apiService.js';
 
 // ==========================================
 // STATE GLOBAL ADMIN
 // ==========================================
 let ALL_DATA = [];
 let CONFIG = {};
-let CURRENT_TAB = 'analytics'; // Tab default baru: 'analytics', 'board', 'table'
+let CURRENT_TAB = 'analytics'; 
 
 // State Table
 let currentPage = 1;
@@ -16,7 +16,7 @@ let filterStatus = 'ALL';
 let sortCol = 'created_at';
 let sortDir = 'asc';
 
-// [BARU] State untuk mencegah Race Condition dan Spam API pada Search
+// State untuk mencegah Race Condition dan Spam API pada Search
 let currentRenderId = 0; 
 let searchTimeout = null;
 
@@ -123,7 +123,7 @@ export async function renderAdminPage(container) {
                     <div class="p-8">
                         <p class="text-sm text-gray-500 mb-4">Pilih jadwal kosong yang tersedia untuk <strong id="reschedule-nama" class="text-brand-navy"></strong>:</p>
                         <select id="reschedule-select" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-brand-pink outline-none text-sm text-brand-navy font-medium mb-6">
-                            </select>
+                        </select>
                         <input type="hidden" id="reschedule-id">
                         <button onclick="window.submitReschedule()" class="w-full px-6 py-3 bg-brand-gold hover:bg-yellow-600 text-white rounded-xl font-bold transition-colors shadow-md flex justify-center items-center gap-2"><i class="ph ph-check-circle"></i> Simpan Jadwal Baru</button>
                     </div>
@@ -141,6 +141,7 @@ export async function renderAdminPage(container) {
 async function initAdminData() {
     document.getElementById('loading-admin').classList.remove('hidden');
     
+    // Trik Cepat: Tarik data sekali di awal, simpan di RAM lokal
     CONFIG = await getSystemConfig();
     await fetchData();
 
@@ -183,7 +184,7 @@ async function initAdminData() {
     document.getElementById('close-confirm-status-modal').addEventListener('click', closeConfirmStatusModal);
     document.getElementById('confirm-status-no').addEventListener('click', closeConfirmStatusModal);
 
-    // Setup Mobile Menu (Hamburger)
+    // Setup Mobile Menu
     const sidebar = document.getElementById('admin-sidebar');
     const overlay = document.getElementById('mobile-menu-overlay');
     const hamburgerBtn = document.getElementById('hamburger-btn');
@@ -212,13 +213,28 @@ async function initAdminData() {
         desktopToggleText.innerText = isCollapsed ? 'Lebarkan' : 'Ciutkan';
     });
 
-
     document.getElementById('loading-admin').classList.add('hidden');
     renderCurrentTab();
 }
 
 async function fetchData() {
     ALL_DATA = await getSemuaPeserta();
+}
+
+// [BARU] FUNGSI MEMORI SAKTI: Merakit Link WA secara Synchronous (0 loading)
+function buatLinkWA(templateKey, participantData) {
+    let template = CONFIG[templateKey] || '';
+    if (!template) return '#';
+    
+    let message = template.replace(/\\n/g, '\n');
+    message = message.replace(/{{nama_lengkap}}/g, participantData.nama_lengkap || '');
+    message = message.replace(/{{jadwal_hari}}/g, participantData.jadwal_hari || '');
+    message = message.replace(/{{jadwal_sesi}}/g, participantData.jadwal_sesi || '');
+    message = message.replace(/{{psikolog_bertugas}}/g, participantData.psikolog_bertugas || 'Psikolog');
+    message = message.replace(/{{feedback_url}}/g, `https://bit.ly/FeedbackKonselingKarierTKTApril2026`);
+
+    const waNumber = participantData.nomor_wa.startsWith('0') ? '62' + participantData.nomor_wa.substring(1) : participantData.nomor_wa;
+    return `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`;
 }
 
 function switchTab(tabName, btnElement) {
@@ -247,22 +263,21 @@ function switchTab(tabName, btnElement) {
 
 function renderCurrentTab() {
     const container = document.getElementById('admin-content');
+    // Karena kita tidak butuh nunggu API di setiap tab lagi, kita bisa langsung render!
     if (CURRENT_TAB === 'analytics') renderAnalyticsView(container);
     else if (CURRENT_TAB === 'board') renderBoardView(container);
     else if (CURRENT_TAB === 'table') renderTableView(container);
 }
 
 // ==========================================================
-// 1. ANALYTICS VIEW (Dashboard Statistik)
+// 1. ANALYTICS VIEW
 // ==========================================================
 function renderAnalyticsView(container) {
     const total = ALL_DATA.length;
     const countHadirSelesai = ALL_DATA.filter(p => ['HADIR', 'SELESAI_FULL'].includes(p.status_peserta)).length;
     const countConfirmed = ALL_DATA.filter(p => p.status_peserta === 'CONFIRMED').length;
     const countWaiting = ALL_DATA.filter(p => p.status_peserta === 'WAITING_LIST').length;
-    const countBatal = ALL_DATA.filter(p => p.status_peserta === 'BATAL').length;
     
-    // Demografi
     const countITB = ALL_DATA.filter(p => (p.asal_univ || '').toLowerCase().includes('institut teknologi bandung')).length;
     const pctITB = total === 0 ? 0 : Math.round((countITB / total) * 100);
     const countCV = ALL_DATA.filter(p => (p.harapan_sesi || '').includes('CV Review')).length;
@@ -327,9 +342,9 @@ function renderAnalyticsView(container) {
 }
 
 // ==========================================================
-// 2. BOARD VIEW (Hierarki: Hari -> Psikolog -> Jam Sesi)
+// 2. BOARD VIEW (Dibuat Super Cepat)
 // ==========================================================
-async function renderBoardView(container) {
+function renderBoardView(container) {
     const days = [...new Set(ALL_DATA.map(p => p.jadwal_hari))].filter(Boolean);
     
     if (days.length === 0) {
@@ -346,28 +361,22 @@ async function renderBoardView(container) {
                     <div class="space-y-8">`;
         
         let psikologListKey;
-        if (day === CONFIG.tanggal_kegiatan_1) {
-            psikologListKey = 'psikolog_list_1';
-        } else if (day === CONFIG.tanggal_kegiatan_2) {
-            psikologListKey = 'psikolog_list_2';
-        }
+        if (day === CONFIG.tanggal_kegiatan_1) psikologListKey = 'psikolog_list_1';
+        else if (day === CONFIG.tanggal_kegiatan_2) psikologListKey = 'psikolog_list_2';
+        
         const psikologListForDay = (psikologListKey && CONFIG[psikologListKey]) ? JSON.parse(CONFIG[psikologListKey]) : [];
-
-        let noPsikolog = 1; // Variabel Penomoran Psikolog
+        let noPsikolog = 1;
 
         for (const namaPsikolog of psikologListForDay) {
-            
             html += `
                 <div class="bg-[#FDF8EE] rounded-2xl p-6 border border-brand-gold/20 shadow-sm relative overflow-hidden">
                     <div class="absolute left-0 top-0 w-2 h-full bg-brand-gold"></div>
                     <h3 class="font-bold text-brand-navy text-lg mb-4 flex items-center gap-2 pl-2">
                         <i class="ph ph-user-focus text-brand-gold text-2xl"></i> ${noPsikolog}. ${namaPsikolog}
                     </h3>
-                    
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             `;
-            
-            noPsikolog++; // Increment nomor untuk psikolog berikutnya
+            noPsikolog++;
 
             for (const sesi of sesiList) {
                 let penghuni = ALL_DATA.find(p => p.jadwal_hari === day && p.psikolog_bertugas === namaPsikolog && p.jadwal_sesi === sesi && !['WAITING_LIST', 'BATAL'].includes(p.status_peserta));
@@ -377,11 +386,12 @@ async function renderBoardView(container) {
                                      ['HADIR', 'SELESAI_FULL'].includes(penghuni.status_peserta) ? 'text-brand-base bg-brand-navy border-brand-navy' : 
                                      'text-brand-blue bg-blue-50 border-blue-200';
                     
-                    const waLink = await generateWhatsAppLink('wa_template_konfirmasi_sesi', penghuni) || '#';
+                    // MEMANGGIL FUNGSI SYNC LOKAL (Super Cepat)
+                    const waLink = buatLinkWA('wa_template_konfirmasi_sesi', penghuni);
 
                     let feedbackButtonHTML = '';
                     if (penghuni.status_peserta === 'HADIR') {
-                        const feedbackWaLink = await generateWhatsAppLink('wa_template_minta_feedback', penghuni) || '#';
+                        const feedbackWaLink = buatLinkWA('wa_template_minta_feedback', penghuni);
                         feedbackButtonHTML = `
                             <a href="${feedbackWaLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
                                 <i class="ph ph-chat-centered-text text-lg"></i>
@@ -424,7 +434,7 @@ async function renderBoardView(container) {
 }
 
 // ==========================================================
-// 3. MASTER TABLE VIEW (Sorting, Paging, Filter, Nomor Urut)
+// 3. MASTER TABLE VIEW
 // ==========================================================
 window.sortData = (column) => {
     if (sortCol === column) {
@@ -484,15 +494,11 @@ function renderTableView(container) {
         </div>
     `;
 
-    // [UPDATE PENTING]: Implementasi Debounce untuk mencegah Race Condition di kotak pencarian
     document.getElementById('search-input').addEventListener('input', (e) => { 
         searchQuery = e.target.value; 
         currentPage = 1; 
-        
         clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            updateTableRows(); 
-        }, 300); // Tunggu 0.3 detik sesudah berhenti ngetik sebelum cari ke DB
+        searchTimeout = setTimeout(() => { updateTableRows(); }, 300); 
     });
 
     document.getElementById('filter-status').addEventListener('change', (e) => { filterStatus = e.target.value; currentPage = 1; updateTableRows(); });
@@ -500,14 +506,12 @@ function renderTableView(container) {
     updateTableRows();
 }
 
-async function updateTableRows() {
+function updateTableRows() {
     const tbody = document.getElementById('table-body');
     const pagination = document.getElementById('pagination-controls');
 
-    // [UPDATE PENTING]: Mencegah tumpuk memori (Race condition)
     const renderId = ++currentRenderId;
 
-    // 1. Filtering (Lebih aman dari null)
     let filteredData = ALL_DATA.filter(p => {
         const namaLengkap = p.nama_lengkap || '';
         const matchSearch = namaLengkap.toLowerCase().includes(searchQuery.toLowerCase().trim());
@@ -515,7 +519,6 @@ async function updateTableRows() {
         return matchSearch && matchStatus;
     });
 
-    // 2. Sorting
     filteredData.sort((a, b) => {
         let valA = a[sortCol] || '';
         let valB = b[sortCol] || '';
@@ -527,7 +530,6 @@ async function updateTableRows() {
         return 0;
     });
 
-    // 3. Paging
     const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
@@ -537,11 +539,9 @@ async function updateTableRows() {
         rowsHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-gray-400"><i class="ph ph-magnifying-glass text-4xl mb-2"></i><br>Data tidak ditemukan.</td></tr>`;
     } else {
         for (const [index, p] of paginatedData.entries()) {
-            
-            // CEK RENDER ID: Jika selama proses await di bawah ini User ngetik hal baru, hentikan proses yang lama ini!
             if (renderId !== currentRenderId) return; 
 
-            const absoluteIndex = startIndex + index + 1; // Penomoran Akurat
+            const absoluteIndex = startIndex + index + 1;
 
             let badgeClass = 'bg-gray-100 text-gray-700';
             if (p.status_peserta === 'DAPAT_SESI') badgeClass = 'bg-blue-50 text-blue-700 border border-blue-200';
@@ -550,7 +550,8 @@ async function updateTableRows() {
             if (p.status_peserta === 'BATAL') badgeClass = 'bg-red-50 text-red-700 border border-red-200';
             if (['HADIR', 'SELESAI_FULL'].includes(p.status_peserta)) badgeClass = 'bg-brand-navy text-brand-base border border-brand-navy';
             
-            const waLink = await generateWhatsAppLink(p.status_peserta === 'WAITING_LIST' ? 'wa_template_waiting_list' : 'wa_template_konfirmasi_sesi', p) || '#'; 
+            // FUNGSI MEMORY LOKAL, NOL LOADING
+            const waLink = buatLinkWA(p.status_peserta === 'WAITING_LIST' ? 'wa_template_waiting_list' : 'wa_template_konfirmasi_sesi', p) || '#'; 
 
             rowsHTML += `
                 <tr class="hover:bg-brand-base/40 transition-colors group">
@@ -577,7 +578,7 @@ async function updateTableRows() {
 
                             <a href="${waLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Kirim WA"><i class="ph ph-whatsapp-logo text-lg"></i></a>
                             ${p.status_peserta === 'HADIR' ? `
-                                <a href="${await generateWhatsAppLink('wa_template_minta_feedback', p) || '#'}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
+                                <a href="${buatLinkWA('wa_template_minta_feedback', p) || '#'}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
                                     <i class="ph ph-chat-centered-text text-lg"></i>
                                 </a>
                             ` : ''}
@@ -595,7 +596,6 @@ async function updateTableRows() {
         }
     }
     
-    // Pastikan ini adalah render yang terakhir diminta sebelum mengganti HTML
     if (renderId !== currentRenderId) return;
 
     tbody.innerHTML = rowsHTML;
@@ -608,19 +608,14 @@ async function updateTableRows() {
         </div>
     `;
 
-    // [BONUS] Update Arah Panah Sorting di Tabel Header
     ['nama_lengkap', 'jadwal_hari', 'status_peserta'].forEach(col => {
         const icon = document.getElementById(`sort-icon-${col}`);
         if (icon) {
-            if (sortCol === col) {
-                icon.className = `ph ${sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down'} text-brand-pink ml-1 inline-block`;
-            } else {
-                icon.className = `ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block`;
-            }
+            if (sortCol === col) icon.className = `ph ${sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down'} text-brand-pink ml-1 inline-block`;
+            else icon.className = `ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block`;
         }
     });
 
-    // Attach Status Selector Logic
     document.querySelectorAll('.status-selector').forEach(sel => {
         sel.addEventListener('change', (e) => {
             const id = e.target.dataset.id;
@@ -644,7 +639,6 @@ async function showConfirmationModal(id, namaPeserta, statusBaru, hari, sesi, or
 
     messageEl.innerHTML = `Anda yakin ingin mengubah status <span class="font-bold text-brand-pink">${namaPeserta}</span> menjadi <span class="font-bold text-brand-gold">${statusBaru.replace('_', ' ')}</span>?`;
 
-    // Hapus event listener sebelumnya untuk mencegah duplikasi
     confirmBtn.replaceWith(confirmBtn.cloneNode(true));
     const newConfirmBtn = document.getElementById('confirm-status-yes');
 
@@ -657,16 +651,15 @@ async function showConfirmationModal(id, namaPeserta, statusBaru, hari, sesi, or
         if(res.success) {
             if (res.dipromosikan) showToast(`Peserta [${res.dipromosikan}] berhasil dipromosikan!`, 'success');
             else showToast(`Status berhasil diubah menjadi ${statusBaru}`, 'success');
-            await initAdminData(); // Refresh ALL DATA
+            await initAdminData();
         } else {
             showToast("Gagal update status! Pastikan koneksi stabil.", 'error');
             selectElement.disabled = false;
-            selectElement.value = originalStatus; // Kembalikan ke status semula jika gagal
+            selectElement.value = originalStatus;
             document.getElementById('loading-admin').classList.add('hidden');
         }
     });
 
-    // Tampilkan modal
     modal.classList.remove('hidden');
     setTimeout(() => { modal.classList.remove('opacity-0'); card.classList.remove('scale-95'); }, 10);
 }
