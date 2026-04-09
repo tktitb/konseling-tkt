@@ -16,6 +16,10 @@ let filterStatus = 'ALL';
 let sortCol = 'created_at';
 let sortDir = 'asc';
 
+// [BARU] State untuk mencegah Race Condition dan Spam API pada Search
+let currentRenderId = 0; 
+let searchTimeout = null;
+
 export async function renderAdminPage(container) {
     container.innerHTML = `
         <div id="admin-layout" class="flex h-screen bg-brand-surface w-full overflow-hidden font-sans group">
@@ -259,9 +263,9 @@ function renderAnalyticsView(container) {
     const countBatal = ALL_DATA.filter(p => p.status_peserta === 'BATAL').length;
     
     // Demografi
-    const countITB = ALL_DATA.filter(p => p.asal_univ.toLowerCase().includes('institut teknologi bandung')).length;
+    const countITB = ALL_DATA.filter(p => (p.asal_univ || '').toLowerCase().includes('institut teknologi bandung')).length;
     const pctITB = total === 0 ? 0 : Math.round((countITB / total) * 100);
-    const countCV = ALL_DATA.filter(p => p.harapan_sesi.includes('CV Review')).length;
+    const countCV = ALL_DATA.filter(p => (p.harapan_sesi || '').includes('CV Review')).length;
     const pctCV = total === 0 ? 0 : Math.round((countCV / total) * 100);
 
     container.innerHTML = `
@@ -349,7 +353,7 @@ async function renderBoardView(container) {
         }
         const psikologListForDay = (psikologListKey && CONFIG[psikologListKey]) ? JSON.parse(CONFIG[psikologListKey]) : [];
 
-        let noPsikolog = 1; // [UPDATE] Variabel Penomoran Psikolog
+        let noPsikolog = 1; // Variabel Penomoran Psikolog
 
         for (const namaPsikolog of psikologListForDay) {
             
@@ -363,10 +367,9 @@ async function renderBoardView(container) {
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             `;
             
-            noPsikolog++; // [UPDATE] Increment nomor untuk psikolog berikutnya
+            noPsikolog++; // Increment nomor untuk psikolog berikutnya
 
             for (const sesi of sesiList) {
-                // Cari peserta di Hari ini, Psikolog ini, dan Jam Sesi ini
                 let penghuni = ALL_DATA.find(p => p.jadwal_hari === day && p.psikolog_bertugas === namaPsikolog && p.jadwal_sesi === sesi && !['WAITING_LIST', 'BATAL'].includes(p.status_peserta));
 
                 if (penghuni) {
@@ -461,13 +464,13 @@ function renderTableView(container) {
                         <tr class="bg-brand-navy text-white text-xs uppercase tracking-wider select-none">
                             <th class="px-5 py-4 font-bold text-center w-12">No.</th>
                             <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group" onclick="window.sortData('nama_lengkap')">
-                                Nama Peserta <i class="ph ${sortCol === 'nama_lengkap' ? (sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'} text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
+                                Nama Peserta <i id="sort-icon-nama_lengkap" class="ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
                             </th>
                             <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group" onclick="window.sortData('jadwal_hari')">
-                                Jadwal & Psikolog <i class="ph ${sortCol === 'jadwal_hari' ? (sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'} text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
+                                Jadwal & Psikolog <i id="sort-icon-jadwal_hari" class="ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
                             </th>
                             <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group text-center" onclick="window.sortData('status_peserta')">
-                                Status <i class="ph ${sortCol === 'status_peserta' ? (sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'} text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
+                                Status <i id="sort-icon-status_peserta" class="ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
                             </th>
                             <th class="px-6 py-4 font-bold text-center">Aksi Cepat</th>
                         </tr>
@@ -481,7 +484,17 @@ function renderTableView(container) {
         </div>
     `;
 
-    document.getElementById('search-input').addEventListener('input', (e) => { searchQuery = e.target.value; currentPage = 1; updateTableRows(); });
+    // [UPDATE PENTING]: Implementasi Debounce untuk mencegah Race Condition di kotak pencarian
+    document.getElementById('search-input').addEventListener('input', (e) => { 
+        searchQuery = e.target.value; 
+        currentPage = 1; 
+        
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            updateTableRows(); 
+        }, 300); // Tunggu 0.3 detik sesudah berhenti ngetik sebelum cari ke DB
+    });
+
     document.getElementById('filter-status').addEventListener('change', (e) => { filterStatus = e.target.value; currentPage = 1; updateTableRows(); });
 
     updateTableRows();
@@ -491,9 +504,13 @@ async function updateTableRows() {
     const tbody = document.getElementById('table-body');
     const pagination = document.getElementById('pagination-controls');
 
-    // 1. Filtering
+    // [UPDATE PENTING]: Mencegah tumpuk memori (Race condition)
+    const renderId = ++currentRenderId;
+
+    // 1. Filtering (Lebih aman dari null)
     let filteredData = ALL_DATA.filter(p => {
-        const matchSearch = p.nama_lengkap.toLowerCase().includes(searchQuery.toLowerCase());
+        const namaLengkap = p.nama_lengkap || '';
+        const matchSearch = namaLengkap.toLowerCase().includes(searchQuery.toLowerCase().trim());
         const matchStatus = filterStatus === 'ALL' || p.status_peserta === filterStatus;
         return matchSearch && matchStatus;
     });
@@ -520,6 +537,10 @@ async function updateTableRows() {
         rowsHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-gray-400"><i class="ph ph-magnifying-glass text-4xl mb-2"></i><br>Data tidak ditemukan.</td></tr>`;
     } else {
         for (const [index, p] of paginatedData.entries()) {
+            
+            // CEK RENDER ID: Jika selama proses await di bawah ini User ngetik hal baru, hentikan proses yang lama ini!
+            if (renderId !== currentRenderId) return; 
+
             const absoluteIndex = startIndex + index + 1; // Penomoran Akurat
 
             let badgeClass = 'bg-gray-100 text-gray-700';
@@ -573,6 +594,10 @@ async function updateTableRows() {
             `;
         }
     }
+    
+    // Pastikan ini adalah render yang terakhir diminta sebelum mengganti HTML
+    if (renderId !== currentRenderId) return;
+
     tbody.innerHTML = rowsHTML;
 
     pagination.innerHTML = `
@@ -583,7 +608,19 @@ async function updateTableRows() {
         </div>
     `;
 
-    // Attach Status Selector Logic (Panggil API + Re-render)
+    // [BONUS] Update Arah Panah Sorting di Tabel Header
+    ['nama_lengkap', 'jadwal_hari', 'status_peserta'].forEach(col => {
+        const icon = document.getElementById(`sort-icon-${col}`);
+        if (icon) {
+            if (sortCol === col) {
+                icon.className = `ph ${sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down'} text-brand-pink ml-1 inline-block`;
+            } else {
+                icon.className = `ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block`;
+            }
+        }
+    });
+
+    // Attach Status Selector Logic
     document.querySelectorAll('.status-selector').forEach(sel => {
         sel.addEventListener('change', (e) => {
             const id = e.target.dataset.id;
@@ -620,7 +657,7 @@ async function showConfirmationModal(id, namaPeserta, statusBaru, hari, sesi, or
         if(res.success) {
             if (res.dipromosikan) showToast(`Peserta [${res.dipromosikan}] berhasil dipromosikan!`, 'success');
             else showToast(`Status berhasil diubah menjadi ${statusBaru}`, 'success');
-            await initAdminData(); // Refresh ALL DATA to update Analytics, Board, & Table simultaneously!
+            await initAdminData(); // Refresh ALL DATA
         } else {
             showToast("Gagal update status! Pastikan koneksi stabil.", 'error');
             selectElement.disabled = false;
