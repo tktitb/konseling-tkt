@@ -158,7 +158,6 @@ export async function toggleStatusPendaftaran(status) {
 // UPDATE LOGIKA: Warisan Slot Psikolog saat Auto Promo
 export async function updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, sesi) {
     try {
-        // A. Cek siapa psikolog peserta yang mau dibatalkan ini
         const { data: currP, error: currErr } = await supabase
             .from('peserta_konseling')
             .select('psikolog_bertugas')
@@ -167,7 +166,6 @@ export async function updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, s
         
         const freedPsikolog = currP.psikolog_bertugas;
 
-        // B. Update status peserta target (Jika Batal, kosongkan slot psikolognya)
         const { error: updateError } = await supabase
             .from('peserta_konseling')
             .update({ 
@@ -177,32 +175,8 @@ export async function updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, s
             .eq('id', id);
         if (updateError) throw updateError;
 
-        let dipromosikan = null;
-
-        // C. Jika Dibatalkan dan dia punya Psikolog, wariskan psikolognya ke Waiting List!
-        if (statusBaru === 'BATAL' && freedPsikolog) {
-            const { data: waitingList, error: wlError } = await supabase
-                .from('peserta_konseling')
-                .select('id, nama_lengkap')
-                .eq('jadwal_hari', hari)
-                .eq('jadwal_sesi', sesi)
-                .eq('status_peserta', 'WAITING_LIST')
-                .order('created_at', { ascending: true })
-                .limit(1);
-
-            if (!wlError && waitingList && waitingList.length > 0) {
-                dipromosikan = waitingList[0].nama_lengkap;
-                await supabase
-                    .from('peserta_konseling')
-                    .update({ 
-                        status_peserta: 'DAPAT_SESI',
-                        psikolog_bertugas: freedPsikolog // Wariskan slot psikolog
-                    })
-                    .eq('id', waitingList[0].id);
-            }
-        }
-
-        return { success: true, dipromosikan: dipromosikan };
+        // Logika Auto-Promo dihapus sesuai permintaan
+        return { success: true, dipromosikan: null };
     } catch (err) {
         console.error(err);
         return { success: false, message: err.message || "Terjadi kesalahan saat update status." };
@@ -270,7 +244,7 @@ export async function submitFeedback(feedbackData) {
 // ==========================================
 export async function ubahJadwalPeserta(idPeserta, hariBaru, sesiBaru, psikologBaru, hariLama, sesiLama, psikologLama) {
     try {
-        // 1. Pindahkan peserta ke jadwal baru
+        // Pindahkan peserta ke jadwal baru
         const { error } = await supabase
             .from('peserta_konseling')
             .update({
@@ -280,35 +254,11 @@ export async function ubahJadwalPeserta(idPeserta, hariBaru, sesiBaru, psikologB
                 status_peserta: 'DAPAT_SESI' // Reset status jadi dapat sesi agar admin bisa konfirmasi ulang
             })
             .eq('id', idPeserta);
-        
+            
         if (error) throw error;
 
-        // 2. LOGIKA AUTO-PROMO: Karena peserta ini pindah, slot lamanya jadi kosong!
-        // Kita cari anak Waiting List di slot lama untuk dinaikkan.
-        let dipromosikan = null;
-        if (psikologLama) {
-            const { data: waitingList, error: wlError } = await supabase
-                .from('peserta_konseling')
-                .select('id, nama_lengkap')
-                .eq('jadwal_hari', hariLama)
-                .eq('jadwal_sesi', sesiLama)
-                .eq('status_peserta', 'WAITING_LIST')
-                .order('created_at', { ascending: true })
-                .limit(1);
-
-            if (!wlError && waitingList && waitingList.length > 0) {
-                dipromosikan = waitingList[0].nama_lengkap;
-                await supabase
-                    .from('peserta_konseling')
-                    .update({ 
-                        status_peserta: 'DAPAT_SESI',
-                        psikolog_bertugas: psikologLama 
-                    })
-                    .eq('id', waitingList[0].id);
-            }
-        }
-
-        return { success: true, dipromosikan: dipromosikan };
+        // Logika Auto-Promo warisan slot dihapus sesuai permintaan
+        return { success: true, dipromosikan: null };
     } catch (err) {
         console.error(err);
         return { success: false, message: err.message };

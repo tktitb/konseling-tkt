@@ -63,13 +63,21 @@ export async function renderAdminPage(container) {
                     </button>
                     <div>
                         <h1 class="text-xl md:text-2xl font-bold text-brand-navy" id="header-title">Dashboard Analitik</h1>
-                        <p class="text-sm text-gray-500" id="header-desc">Ringkasan statistik dan performa pendaftaran sesi.</p>
+                        <p class="text-sm text-gray-500 hidden sm:block" id="header-desc">Ringkasan statistik dan performa pendaftaran sesi.</p>
                     </div>
-                    <div class="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
-                        <span class="text-sm font-semibold text-brand-navy" id="status-text">Form:</span>
-                        <button id="btn-toggle-form" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-pink focus:ring-offset-1">
-                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow"></span>
+                    
+                    <div class="flex items-center gap-2 sm:gap-4">
+                        <button id="btn-refresh-data" class="flex items-center justify-center h-10 px-3 sm:px-4 bg-white hover:bg-brand-surface text-brand-navy rounded-xl border border-gray-200 shadow-sm transition-all focus:ring-2 focus:ring-brand-pink focus:outline-none group" title="Tarik Data Terbaru">
+                            <i class="ph ph-arrows-clockwise text-lg group-hover:rotate-180 transition-transform duration-500" id="refresh-icon"></i>
+                            <span class="text-sm font-bold hidden sm:block sm:ml-2">Refresh</span>
                         </button>
+                        
+                        <div class="flex items-center gap-2 sm:gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
+                            <span class="text-sm font-semibold text-brand-navy hidden sm:inline" id="status-text">Form:</span>
+                            <button id="btn-toggle-form" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-pink focus:ring-offset-1">
+                                <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow"></span>
+                            </button>
+                        </div>
                     </div>
                 </header>
 
@@ -81,7 +89,7 @@ export async function renderAdminPage(container) {
                 </div>
 
                 <div id="admin-content" class="flex-1 overflow-auto p-6 md:p-8 scroll-smooth">
-                    </div>
+                </div>
             </main>
 
             <div id="detail-modal" class="fixed inset-0 bg-brand-navy/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
@@ -170,6 +178,22 @@ async function initAdminData() {
         isBuka = !isBuka;
         updateToggleUI();
         await toggleStatusPendaftaran(isBuka ? 'buka' : 'tutup');
+    });
+
+    // [BARU] Setup Tombol Refresh Manual
+    const btnRefresh = document.getElementById('btn-refresh-data');
+    const refreshIcon = document.getElementById('refresh-icon');
+    btnRefresh.addEventListener('click', async () => {
+        // Putar ikon dan munculkan toast Info
+        refreshIcon.classList.add('animate-spin');
+        showToast("Menarik data terbaru...", "info");
+        
+        await fetchData(); // Tarik data baru dari Supabase
+        renderCurrentTab(); // Render ulang tab yang sedang terbuka
+        
+        // Hentikan putaran dan munculkan toast Sukses
+        refreshIcon.classList.remove('animate-spin');
+        showToast("Data berhasil diperbarui!", "success");
     });
 
     // Setup Tab Navigation
@@ -649,8 +673,8 @@ async function showConfirmationModal(id, namaPeserta, statusBaru, hari, sesi, or
         
         const res = await updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, sesi);
         if(res.success) {
-            if (res.dipromosikan) showToast(`Peserta [${res.dipromosikan}] berhasil dipromosikan!`, 'success');
-            else showToast(`Status berhasil diubah menjadi ${statusBaru}`, 'success');
+            // Alert Auto Promo dihapus
+            showToast(`Status berhasil diubah menjadi ${statusBaru}`, 'success');
             await initAdminData();
         } else {
             showToast("Gagal update status! Pastikan koneksi stabil.", 'error');
@@ -685,7 +709,7 @@ window.bukaModalReschedule = (id) => {
     const sesiList = ["09.00-09.45", "09.50-10.35", "10.40-11.25", "11.30-12.15", "13.15-14.00", "14.05-14.50", "14.55-15.40"];
     const days = [CONFIG.tanggal_kegiatan_1, CONFIG.tanggal_kegiatan_2].filter(Boolean);
     
-    let optionsHTML = '<option value="" disabled selected>Pilih Jadwal Baru yang Kosong...</option>';
+    let optionsHTML = '<option value="" disabled selected>Pilih Jadwal & Psikolog yang Kosong...</option>';
     let slotKetemu = false;
 
     days.forEach(day => {
@@ -700,16 +724,18 @@ window.bukaModalReschedule = (id) => {
             );
 
             if (taken.length < psikologList.length) {
-                if (!(p.jadwal_hari === day && p.jadwal_sesi === sesi)) {
-                    const takenPsikologs = taken.map(t => t.psikolog_bertugas);
-                    const freePsikolog = psikologList.find(psi => !takenPsikologs.includes(psi));
-                    
-                    if(freePsikolog) {
-                        const sisaSlot = psikologList.length - taken.length;
-                        optionsHTML += `<option value="${day}|${sesi}|${freePsikolog}">${day} - Pukul ${sesi} (Sisa ${sisaSlot} slot)</option>`;
+                const takenPsikologs = taken.map(t => t.psikolog_bertugas);
+                
+                // Cari SEMUA psikolog yang belum ada jadwal (nganggur) di hari & jam ini
+                const freePsikologs = psikologList.filter(psi => !takenPsikologs.includes(psi));
+                
+                freePsikologs.forEach(freePsi => {
+                    // Jangan tampilkan opsi jika itu adalah jadwal yang saat ini sedang diisi oleh peserta itu sendiri
+                    if (!(p.jadwal_hari === day && p.jadwal_sesi === sesi && p.psikolog_bertugas === freePsi)) {
+                        optionsHTML += `<option value="${day}|${sesi}|${freePsi}">${day} - Pukul ${sesi} (Bersama ${freePsi})</option>`;
                         slotKetemu = true;
                     }
-                }
+                });
             }
         });
     });
@@ -753,9 +779,7 @@ window.submitReschedule = async () => {
     if (res.success) {
         window.tutupModalReschedule();
         showToast("Jadwal peserta berhasil dipindah!", "success");
-        if(res.dipromosikan) {
-            alert(`SISTEM AUTO-PROMO:\nKabar baik! Karena jadwal dipindah, anak Waiting List bernama [${res.dipromosikan}] otomatis naik untuk mengisi slot lama yang baru saja kosong.`);
-        }
+        // Alert Auto Promo dihapus
         await initAdminData(); 
     } else {
         showToast("Gagal memindah jadwal: " + res.message, "error");
@@ -838,8 +862,18 @@ function showToast(message, type = 'info') {
     if (!container) return;
 
     const toast = document.createElement('div');
-    const icon = type === 'success' ? 'ph-check-circle' : 'ph-x-circle';
-    const colors = type === 'success' ? 'bg-green-500 border-green-600' : 'bg-red-500 border-red-600';
+    
+    // Logika pewarnaan & ikon dinamis berdasarkan tipe Notifikasi
+    let icon = 'ph-info';
+    let colors = 'bg-blue-500 border-blue-600'; // Default untuk tipe 'info'
+    
+    if (type === 'success') {
+        icon = 'ph-check-circle';
+        colors = 'bg-green-500 border-green-600';
+    } else if (type === 'error') {
+        icon = 'ph-x-circle';
+        colors = 'bg-red-500 border-red-600';
+    }
 
     toast.className = `flex items-center gap-3 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg border ${colors} animate-fade-in-up`;
     toast.innerHTML = `<i class="ph ${icon} text-xl"></i><span>${message}</span>`;
