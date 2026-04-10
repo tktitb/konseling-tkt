@@ -156,10 +156,8 @@ export async function toggleStatusPendaftaran(status) {
 }
 
 // UPDATE LOGIKA: Warisan Slot Psikolog saat Auto Promo
-// UPDATE LOGIKA: Cegah Admin mengubah status secara langsung jika peserta tidak punya slot (BATAL)
 export async function updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, sesi) {
     try {
-        // 1. Ambil data peserta saat ini
         const { data: currP, error: currErr } = await supabase
             .from('peserta_konseling')
             .select('status_peserta, psikolog_bertugas')
@@ -168,17 +166,17 @@ export async function updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, s
         
         let newPsikolog = currP.psikolog_bertugas;
 
-        // 2. CEGAH ERROR: Jika status mau diaktifkan lagi TAPI peserta tidak punya psikolog (Karena sempat Batal/Waiting List)
+        // JIKA ADMIN MENGAKTIFKAN PESERTA YANG BELUM PUNYA PSIKOLOG (Waiting List / Batal)
         if (['CONFIRMED', 'HADIR', 'DAPAT_SESI', 'SELESAI_FULL'].includes(statusBaru) && !newPsikolog) {
-            throw new Error("Peserta ini tidak memiliki slot Psikolog (sudah hangus/Batal). Silakan gunakan tombol Ikon Kalender (Pindah Jadwal) untuk mengaktifkan statusnya sekaligus memilih slot baru.");
+            throw new Error("Peserta ini belum masuk ke slot Psikolog manapun. Silakan gunakan tombol Ikon Kalender (Pindah Jadwal) untuk memilihkan slotnya terlebih dahulu!");
         } 
         
-        // 3. Jika status diubah menjadi BATAL, jadikan slotnya kosong (null)
+        // JIKA DIBATALKAN OLEH ADMIN, KOSONGKAN SLOTNYA
         if (statusBaru === 'BATAL') {
             newPsikolog = null;
         }
 
-        // 4. Eksekusi Perubahan ke Database
+        // Eksekusi perubahan ke database
         const { error: updateError } = await supabase
             .from('peserta_konseling')
             .update({ 

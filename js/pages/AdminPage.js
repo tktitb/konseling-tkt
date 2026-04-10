@@ -368,7 +368,7 @@ function renderAnalyticsView(container) {
 // ==========================================================
 // 2. BOARD VIEW (Dibuat Super Cepat)
 // ==========================================================
-function renderBoardView(container) {
+async function renderBoardView(container) {
     const days = [...new Set(ALL_DATA.map(p => p.jadwal_hari))].filter(Boolean);
     
     if (days.length === 0) {
@@ -403,46 +403,50 @@ function renderBoardView(container) {
             noPsikolog++;
 
             for (const sesi of sesiList) {
-                let penghuni = ALL_DATA.find(p => p.jadwal_hari === day && p.psikolog_bertugas === namaPsikolog && p.jadwal_sesi === sesi && !['WAITING_LIST', 'BATAL'].includes(p.status_peserta));
+                // [DIUBAH] Gunakan .filter() untuk menangkap SEMUA peserta (Bisa lebih dari 1 orang)
+                let penghuniList = ALL_DATA.filter(p => p.jadwal_hari === day && p.psikolog_bertugas === namaPsikolog && p.jadwal_sesi === sesi && !['WAITING_LIST', 'BATAL'].includes(p.status_peserta));
 
-                if (penghuni) {
-                    let badgeColor = penghuni.status_peserta === 'CONFIRMED' ? 'text-green-700 bg-green-100 border-green-200' : 
-                                     ['HADIR', 'SELESAI_FULL'].includes(penghuni.status_peserta) ? 'text-brand-base bg-brand-navy border-brand-navy' : 
-                                     'text-brand-blue bg-blue-50 border-blue-200';
+                if (penghuniList.length > 0) {
+                    html += `<div class="flex flex-col gap-2 h-full">`; // Wrapper untuk tumpukan kartu
                     
-                    // MEMANGGIL FUNGSI SYNC LOKAL (Super Cepat)
-                    const waLink = buatLinkWA('wa_template_konfirmasi_sesi', penghuni);
+                    for (const penghuni of penghuniList) {
+                        let badgeColor = penghuni.status_peserta === 'CONFIRMED' ? 'text-green-700 bg-green-100 border-green-200' : 
+                                         ['HADIR', 'SELESAI_FULL'].includes(penghuni.status_peserta) ? 'text-brand-base bg-brand-navy border-brand-navy' : 
+                                         'text-brand-blue bg-blue-50 border-blue-200';
+                        
+                        const waLink = buatLinkWA('wa_template_konfirmasi_sesi', penghuni);
+                        let feedbackButtonHTML = '';
+                        if (penghuni.status_peserta === 'HADIR') {
+                            const feedbackWaLink = buatLinkWA('wa_template_minta_feedback', penghuni);
+                            feedbackButtonHTML = `
+                                <a href="${feedbackWaLink}" target="_blank" class="w-7 h-7 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-lg font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
+                                    <i class="ph ph-chat-centered-text text-sm"></i>
+                                </a>
+                            `;
+                        }
 
-                    let feedbackButtonHTML = '';
-                    if (penghuni.status_peserta === 'HADIR') {
-                        const feedbackWaLink = buatLinkWA('wa_template_minta_feedback', penghuni);
-                        feedbackButtonHTML = `
-                            <a href="${feedbackWaLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
-                                <i class="ph ph-chat-centered-text text-lg"></i>
-                            </a>
+                        html += `
+                            <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:border-brand-pink transition-colors group relative">
+                                <div>
+                                    <div class="flex justify-between items-start mb-2">
+                                        <span class="inline-block px-1.5 py-0.5 text-[9px] font-bold rounded border ${badgeColor}">${penghuni.status_peserta.replace('_', ' ')}</span>
+                                        <div class="flex items-center gap-1">
+                                            <a href="${waLink}" target="_blank" class="w-7 h-7 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold shadow-sm transition-transform hover:scale-105" title="Chat WA">
+                                                <i class="ph ph-whatsapp-logo text-sm"></i> 
+                                            </a>
+                                            ${feedbackButtonHTML}
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] font-bold text-gray-400 mb-0.5"><i class="ph ph-clock"></i> ${sesi}</p>
+                                    <p class="font-bold text-brand-navy text-xs leading-tight mb-1 truncate cursor-pointer hover:text-brand-pink" onclick="window.bukaDetail('${penghuni.id}')">${penghuni.nama_lengkap}</p>
+                                </div>
+                            </div>
                         `;
                     }
-
-                    html += `
-                        <div class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:border-brand-pink transition-colors group relative">
-                            <div>
-                                <div class="flex justify-between items-start mb-2">
-                                    <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border ${badgeColor}">${penghuni.status_peserta.replace('_', ' ')}</span>
-                                    <div class="flex items-center gap-1">
-                                        <a href="${waLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Chat WA">
-                                            <i class="ph ph-whatsapp-logo text-lg"></i> 
-                                        </a>
-                                        ${feedbackButtonHTML}
-                                    </div>
-                                </div>
-                                <p class="text-[11px] font-bold text-gray-400 mb-0.5"><i class="ph ph-clock"></i> ${sesi}</p>
-                                <p class="font-bold text-brand-navy text-sm leading-tight mb-1 truncate cursor-pointer hover:text-brand-pink" onclick="window.bukaDetail('${penghuni.id}')">${penghuni.nama_lengkap}</p>
-                            </div>
-                        </div>
-                    `;
+                    html += `</div>`; // Tutup Wrapper
                 } else {
                     html += `
-                        <div class="bg-white/50 p-3.5 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-center opacity-60">
+                        <div class="bg-white/50 p-3.5 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-center opacity-60 h-full">
                             <p class="text-[11px] font-bold text-gray-400 mb-1"><i class="ph ph-clock"></i> ${sesi}</p>
                             <p class="text-xs text-gray-500 font-medium">Slot Kosong</p>
                         </div>
@@ -709,8 +713,7 @@ window.bukaModalReschedule = (id) => {
     const sesiList = ["09.00-09.45", "09.50-10.35", "10.40-11.25", "11.30-12.15", "13.15-14.00", "14.05-14.50", "14.55-15.40"];
     const days = [CONFIG.tanggal_kegiatan_1, CONFIG.tanggal_kegiatan_2].filter(Boolean);
     
-    let optionsHTML = '<option value="" disabled selected>Pilih Jadwal & Psikolog yang Kosong...</option>';
-    let slotKetemu = false;
+    let optionsHTML = '<option value="" disabled selected>Pilih Jadwal & Psikolog Baru...</option>';
 
     days.forEach(day => {
         const psikologListKey = day === CONFIG.tanggal_kegiatan_1 ? 'psikolog_list_1' : 'psikolog_list_2';
@@ -723,26 +726,20 @@ window.bukaModalReschedule = (id) => {
                 ['DAPAT_SESI', 'CONFIRMED', 'HADIR', 'SELESAI_FULL'].includes(x.status_peserta)
             );
 
-            if (taken.length < psikologList.length) {
-                const takenPsikologs = taken.map(t => t.psikolog_bertugas);
-                
-                // Cari SEMUA psikolog yang belum ada jadwal (nganggur) di hari & jam ini
-                const freePsikologs = psikologList.filter(psi => !takenPsikologs.includes(psi));
-                
-                freePsikologs.forEach(freePsi => {
-                    // Jangan tampilkan opsi jika itu adalah jadwal yang saat ini sedang diisi oleh peserta itu sendiri
-                    if (!(p.jadwal_hari === day && p.jadwal_sesi === sesi && p.psikolog_bertugas === freePsi)) {
-                        optionsHTML += `<option value="${day}|${sesi}|${freePsi}">${day} - Pukul ${sesi} (Bersama ${freePsi})</option>`;
-                        slotKetemu = true;
-                    }
-                });
-            }
+            // Tampilkan SEMUA psikolog di jam ini, terlepas kosong atau sudah penuh
+            psikologList.forEach(psi => {
+                // Sembunyikan opsi jika itu adalah slot yang sedang ditempati peserta itu sendiri saat ini
+                if (!(p.jadwal_hari === day && p.jadwal_sesi === sesi && p.psikolog_bertugas === psi)) {
+                    
+                    // Hitung ada berapa orang di bilik psikolog ini pada jam tersebut
+                    const countInSlot = taken.filter(t => t.psikolog_bertugas === psi).length;
+                    const statusText = countInSlot === 0 ? '🟢 Kosong' : `🔴 Terisi (${countInSlot} org)`;
+                    
+                    optionsHTML += `<option value="${day}|${sesi}|${psi}">${day} | Pukul ${sesi} | ${psi} - ${statusText}</option>`;
+                }
+            });
         });
     });
-
-    if (!slotKetemu) {
-        optionsHTML = '<option value="" disabled selected>Semua slot sudah penuh!</option>';
-    }
 
     document.getElementById('reschedule-select').innerHTML = optionsHTML;
 
