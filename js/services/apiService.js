@@ -24,13 +24,9 @@ export async function getWhatsAppTemplate(templateKey) {
 export async function generateWhatsAppLink(templateKey, participantData) {
     try {
         const template = await getWhatsAppTemplate(templateKey);
-        if (!template) return '#'; // Fallback jika template tidak ditemukan
+        if (!template) return '#'; 
 
-        let message = template;
-        // [FIX] Konversi literal '\\n' (dua karakter) dari DB menjadi karakter newline '\n' (satu karakter) asli.
-        // encodeURIComponent akan menangani konversi '\n' ke '%0A' dan emoji secara otomatis.
-        message = message.replace(/\\n/g, '\n');
-        // Ganti placeholder dengan data peserta
+        let message = template.replace(/\\n/g, '\n');
         message = message.replace(/{{nama_lengkap}}/g, participantData.nama_lengkap || '');
         message = message.replace(/{{jadwal_hari}}/g, participantData.jadwal_hari || '');
         message = message.replace(/{{jadwal_sesi}}/g, participantData.jadwal_sesi || '');
@@ -54,7 +50,7 @@ export function subscribeToPesertaChanges(callback) {
 
 export async function submitRegistration(participantData) {
     try {
-        // 0. Cek Duplikasi Email dan Nomor WA
+        // Cek Duplikasi
         const { data: existingParticipant, error: checkError } = await supabase
             .from('peserta_konseling')
             .select('id')
@@ -67,13 +63,11 @@ export async function submitRegistration(participantData) {
             return { success: false, message: "Email dan Nomor WhatsApp ini sudah terdaftar." };
         }
 
-        // 1. Ambil semua config sistem untuk daftar psikolog
         const { data: configData, error: configError } = await supabase.from('pengaturan_sistem').select('*');
         if (configError) throw configError;
         const config = {};
         configData.forEach(item => { config[item.kunci] = item.nilai; });
 
-        // 2. Tentukan daftar psikolog yang bertugas pada hari yang dipilih
         let psikologListKey;
         if (participantData.jadwal_hari === config.tanggal_kegiatan_1) {
             psikologListKey = 'psikolog_list_1';
@@ -86,7 +80,6 @@ export async function submitRegistration(participantData) {
         }
         const allPsikologsForDay = JSON.parse(config[psikologListKey]);
 
-        // 3. Ambil semua slot yang sudah terisi pada hari dan sesi yang dipilih
         const { data: existingData, error: countError } = await supabase
             .from('peserta_konseling')
             .select('psikolog_bertugas')
@@ -96,32 +89,25 @@ export async function submitRegistration(participantData) {
         if (countError) throw countError;
         const takenPsikologs = existingData.map(p => p.psikolog_bertugas);
 
-        // 4. Logika Auto-Assign Baru
         let assignedPsikolog = null;
         const isPreferenceChosen = participantData.psikolog_pilihan && participantData.psikolog_pilihan !== 'Siapa saja (Rekomendasi)';
-
-        // Prioritas 1: Cek apakah psikolog pilihan tersedia
-        if (isPreferenceChosen) {
-            if (!takenPsikologs.includes(participantData.psikolog_pilihan)) {
-                assignedPsikolog = participantData.psikolog_pilihan;
-            }
+        
+        if (isPreferenceChosen && !takenPsikologs.includes(participantData.psikolog_pilihan)) {
+            assignedPsikolog = participantData.psikolog_pilihan;
         }
         
-        // Prioritas 2: Jika pilihan tidak tersedia atau tidak memilih, cari slot kosong lain
         if (!assignedPsikolog) {
             const availablePsikologs = allPsikologsForDay.filter(p => !takenPsikologs.includes(p));
             if (availablePsikologs.length > 0) {
-                assignedPsikolog = availablePsikologs[0]; // Ambil slot kosong pertama yang tersedia
+                assignedPsikolog = availablePsikologs[0];
             }
         }
 
-        // 5. Finalisasi data untuk dimasukkan ke DB
         let finalData = { ...participantData };
         if (assignedPsikolog) {
             finalData.status_peserta = 'DAPAT_SESI';
             finalData.psikolog_bertugas = assignedPsikolog;
         } else {
-            // Prioritas 3: Jika semua slot penuh, masuk Waiting List
             finalData.status_peserta = 'WAITING_LIST';
             finalData.psikolog_bertugas = null;
         }
@@ -147,6 +133,30 @@ export async function getSemuaPeserta() {
     } catch (err) { console.error(err); return []; }
 }
 
+// [BARU] Fungsi Menarik Semua Data Feedback untuk Analitik
+export async function getSemuaFeedback() {
+    try {
+        // Ambil data feedback beserta relasinya (jadwal, sesi, dan psikolog) dari peserta
+        const { data, error } = await supabase
+            .from('peserta_feedback')
+            .select(`
+                *,
+                peserta_konseling (
+                    jadwal_hari,
+                    jadwal_sesi,
+                    psikolog_bertugas
+                )
+            `)
+            .order('created_at', { ascending: false });
+            
+        if (error) throw error;
+        return data;
+    } catch (err) { 
+        console.error("Error fetching feedback:", err); 
+        return []; 
+    }
+}
+
 export async function toggleStatusPendaftaran(status) {
     try {
         const { error } = await supabase.from('pengaturan_sistem').update({ nilai: status }).eq('kunci', 'status_pendaftaran');
@@ -155,7 +165,6 @@ export async function toggleStatusPendaftaran(status) {
     } catch (err) { return false; }
 }
 
-// UPDATE LOGIKA: Warisan Slot Psikolog saat Auto Promo
 export async function updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, sesi) {
     try {
         const { data: currP, error: currErr } = await supabase
@@ -166,17 +175,14 @@ export async function updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, s
         
         let newPsikolog = currP.psikolog_bertugas;
 
-        // JIKA ADMIN MENGAKTIFKAN PESERTA YANG BELUM PUNYA PSIKOLOG (Waiting List / Batal)
         if (['CONFIRMED', 'HADIR', 'DAPAT_SESI', 'SELESAI_FULL'].includes(statusBaru) && !newPsikolog) {
-            throw new Error("Peserta ini belum masuk ke slot Psikolog manapun. Silakan gunakan tombol Ikon Kalender (Pindah Jadwal) untuk memilihkan slotnya terlebih dahulu!");
+            throw new Error("Peserta ini belum memiliki slot psikolog. Silakan gunakan tombol Ikon Kalender (Pindah Jadwal) untuk mengatur slotnya terlebih dahulu.");
         } 
         
-        // JIKA DIBATALKAN OLEH ADMIN, KOSONGKAN SLOTNYA
         if (statusBaru === 'BATAL') {
             newPsikolog = null;
         }
 
-        // Eksekusi perubahan ke database
         const { error: updateError } = await supabase
             .from('peserta_konseling')
             .update({ 
@@ -196,7 +202,6 @@ export async function updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, s
 
 export async function submitFeedback(feedbackData) {
     try {
-        // 1. Validasi: Cari peserta berdasarkan email dan nomor WA
         const { data: participant, error: findError } = await supabase
             .from('peserta_konseling')
             .select('id, status_peserta')
@@ -208,7 +213,6 @@ export async function submitFeedback(feedbackData) {
             return { success: false, message: "Data Anda tidak ditemukan. Pastikan email dan nomor WhatsApp sesuai dengan yang Anda daftarkan." };
         }
 
-        // 2. Validasi: Pastikan status peserta adalah 'HADIR'
         if (participant.status_peserta !== 'HADIR') {
             if (participant.status_peserta === 'SELESAI_FULL') {
                 return { success: false, message: "Anda sudah pernah mengisi feedback sebelumnya." };
@@ -216,7 +220,6 @@ export async function submitFeedback(feedbackData) {
             return { success: false, message: "Anda hanya dapat mengisi feedback setelah sesi konseling Anda berstatus HADIR." };
         }
 
-        // 3. Siapkan data untuk dimasukkan ke tabel feedback
         const feedbackInsertData = {
             peserta_id: participant.id,
             nama_pengisi: feedbackData.nama_pengisi,
@@ -235,13 +238,11 @@ export async function submitFeedback(feedbackData) {
             saran_feedback: feedbackData.saran_feedback || null,
         };
 
-        // 4. Masukkan data feedback dan update status peserta dalam satu transaksi
         const { error: insertFeedbackError } = await supabase.from('peserta_feedback').insert([feedbackInsertData]);
         if (insertFeedbackError) throw insertFeedbackError;
 
         const { error: updateStatusError } = await supabase.from('peserta_konseling').update({ status_peserta: 'SELESAI_FULL' }).eq('id', participant.id);
         if (updateStatusError) throw updateStatusError;
-
         return { success: true };
 
     } catch (err) {
@@ -250,25 +251,18 @@ export async function submitFeedback(feedbackData) {
     }
 }
 
-// ==========================================
-// FUNGSI KHUSUS PINDAH JADWAL
-// ==========================================
 export async function ubahJadwalPeserta(idPeserta, hariBaru, sesiBaru, psikologBaru, hariLama, sesiLama, psikologLama) {
     try {
-        // Pindahkan peserta ke jadwal baru
         const { error } = await supabase
             .from('peserta_konseling')
             .update({
                 jadwal_hari: hariBaru,
                 jadwal_sesi: sesiBaru,
                 psikolog_bertugas: psikologBaru,
-                status_peserta: 'DAPAT_SESI' // Reset status jadi dapat sesi agar admin bisa konfirmasi ulang
+                status_peserta: 'DAPAT_SESI' 
             })
             .eq('id', idPeserta);
-            
         if (error) throw error;
-
-        // Logika Auto-Promo warisan slot dihapus sesuai permintaan
         return { success: true, dipromosikan: null };
     } catch (err) {
         console.error(err);

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Konseling Karier Terpadu</title>
 
-    <!-- === FAVICON === -->
     <link rel="icon" href="./assets/images/favicon.ico" sizes="any">
     <link rel="icon" href="./assets/images/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="./assets/images/apple-touch-icon.png">
@@ -15,8 +14,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script>
         // Konfigurasi Tema Tailwind Kustom (Navy, Gold, Pink, Cream)
         tailwind.config = {
@@ -25,18 +26,18 @@
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
                         brand: {
-                            base: '#F3F3E0',     /* Background utama cerah */
-                            navy: '#183B4E',     /* Warna header & teks utama */
-                            blue: '#27548A',     /* Warna sekunder */
-                            gold: '#DDA853',     /* Warna aksen mewah */
-                            pink: '#FF5A8D',     /* Aksen PINK estetik */
-                            pinkdark: '#E04274', /* Pink saat di-hover */
-                            text: '#152a3b',     /* Teks gelap */
-                            surface: '#ffffff',  /* Card background */
+                            base: '#F3F3E0',     
+                            navy: '#183B4E',     
+                            blue: '#27548A',     
+                            gold: '#DDA853',     
+                            pink: '#FF5A8D',     
+                            pinkdark: '#E04274', 
+                            text: '#152a3b',     
+                            surface: '#ffffff',  
                         }
                     },
                     boxShadow: {
-                        'elegant': '0 18px 32px rgba(24,59,78,0.08)', /* Shadow Navy transparan */
+                        'elegant': '0 18px 32px rgba(24,59,78,0.08)',
                     }
                 }
             }
@@ -62,7 +63,6 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script type="module" src="./js/main.js"></script>
 </body>
 </html>

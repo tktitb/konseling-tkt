@@ -1,12 +1,12 @@
 // File: frontend/js/pages/AdminPage.js
-import { getSemuaPeserta, getSystemConfig, toggleStatusPendaftaran, updateStatusPesertaDenganAutoPromo, generateWhatsAppLink, ubahJadwalPeserta } from '../services/apiService.js';
+import { getSemuaPeserta, getSystemConfig, toggleStatusPendaftaran, updateStatusPesertaDenganAutoPromo, ubahJadwalPeserta } from '../services/apiService.js';
 
 // ==========================================
 // STATE GLOBAL ADMIN
 // ==========================================
 let ALL_DATA = [];
 let CONFIG = {};
-let CURRENT_TAB = 'analytics'; // Tab default baru: 'analytics', 'board', 'table'
+let CURRENT_TAB = 'analytics'; 
 
 // State Table
 let currentPage = 1;
@@ -15,6 +15,10 @@ let searchQuery = '';
 let filterStatus = 'ALL';
 let sortCol = 'created_at';
 let sortDir = 'asc';
+
+// State untuk mencegah Race Condition dan Spam API pada Search
+let currentRenderId = 0; 
+let searchTimeout = null;
 
 export async function renderAdminPage(container) {
     container.innerHTML = `
@@ -59,13 +63,21 @@ export async function renderAdminPage(container) {
                     </button>
                     <div>
                         <h1 class="text-xl md:text-2xl font-bold text-brand-navy" id="header-title">Dashboard Analitik</h1>
-                        <p class="text-sm text-gray-500" id="header-desc">Ringkasan statistik dan performa pendaftaran sesi.</p>
+                        <p class="text-sm text-gray-500 hidden sm:block" id="header-desc">Ringkasan statistik dan performa pendaftaran sesi.</p>
                     </div>
-                    <div class="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
-                        <span class="text-sm font-semibold text-brand-navy" id="status-text">Form:</span>
-                        <button id="btn-toggle-form" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-pink focus:ring-offset-1">
-                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow"></span>
+                    
+                    <div class="flex items-center gap-2 sm:gap-4">
+                        <button id="btn-refresh-data" class="flex items-center justify-center h-10 px-3 sm:px-4 bg-white hover:bg-brand-surface text-brand-navy rounded-xl border border-gray-200 shadow-sm transition-all focus:ring-2 focus:ring-brand-pink focus:outline-none group" title="Tarik Data Terbaru">
+                            <i class="ph ph-arrows-clockwise text-lg group-hover:rotate-180 transition-transform duration-500" id="refresh-icon"></i>
+                            <span class="text-sm font-bold hidden sm:block sm:ml-2">Refresh</span>
                         </button>
+                        
+                        <div class="flex items-center gap-2 sm:gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
+                            <span class="text-sm font-semibold text-brand-navy hidden sm:inline" id="status-text">Form:</span>
+                            <button id="btn-toggle-form" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-pink focus:ring-offset-1">
+                                <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow"></span>
+                            </button>
+                        </div>
                     </div>
                 </header>
 
@@ -77,7 +89,7 @@ export async function renderAdminPage(container) {
                 </div>
 
                 <div id="admin-content" class="flex-1 overflow-auto p-6 md:p-8 scroll-smooth">
-                    </div>
+                </div>
             </main>
 
             <div id="detail-modal" class="fixed inset-0 bg-brand-navy/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
@@ -119,7 +131,7 @@ export async function renderAdminPage(container) {
                     <div class="p-8">
                         <p class="text-sm text-gray-500 mb-4">Pilih jadwal kosong yang tersedia untuk <strong id="reschedule-nama" class="text-brand-navy"></strong>:</p>
                         <select id="reschedule-select" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-brand-pink outline-none text-sm text-brand-navy font-medium mb-6">
-                            </select>
+                        </select>
                         <input type="hidden" id="reschedule-id">
                         <button onclick="window.submitReschedule()" class="w-full px-6 py-3 bg-brand-gold hover:bg-yellow-600 text-white rounded-xl font-bold transition-colors shadow-md flex justify-center items-center gap-2"><i class="ph ph-check-circle"></i> Simpan Jadwal Baru</button>
                     </div>
@@ -137,6 +149,7 @@ export async function renderAdminPage(container) {
 async function initAdminData() {
     document.getElementById('loading-admin').classList.remove('hidden');
     
+    // Trik Cepat: Tarik data sekali di awal, simpan di RAM lokal
     CONFIG = await getSystemConfig();
     await fetchData();
 
@@ -167,6 +180,22 @@ async function initAdminData() {
         await toggleStatusPendaftaran(isBuka ? 'buka' : 'tutup');
     });
 
+    // [BARU] Setup Tombol Refresh Manual
+    const btnRefresh = document.getElementById('btn-refresh-data');
+    const refreshIcon = document.getElementById('refresh-icon');
+    btnRefresh.addEventListener('click', async () => {
+        // Putar ikon dan munculkan toast Info
+        refreshIcon.classList.add('animate-spin');
+        showToast("Menarik data terbaru...", "info");
+        
+        await fetchData(); // Tarik data baru dari Supabase
+        renderCurrentTab(); // Render ulang tab yang sedang terbuka
+        
+        // Hentikan putaran dan munculkan toast Sukses
+        refreshIcon.classList.remove('animate-spin');
+        showToast("Data berhasil diperbarui!", "success");
+    });
+
     // Setup Tab Navigation
     document.getElementById('nav-analytics').addEventListener('click', (e) => switchTab('analytics', e.currentTarget));
     document.getElementById('nav-board').addEventListener('click', (e) => switchTab('board', e.currentTarget));
@@ -179,7 +208,7 @@ async function initAdminData() {
     document.getElementById('close-confirm-status-modal').addEventListener('click', closeConfirmStatusModal);
     document.getElementById('confirm-status-no').addEventListener('click', closeConfirmStatusModal);
 
-    // Setup Mobile Menu (Hamburger)
+    // Setup Mobile Menu
     const sidebar = document.getElementById('admin-sidebar');
     const overlay = document.getElementById('mobile-menu-overlay');
     const hamburgerBtn = document.getElementById('hamburger-btn');
@@ -208,13 +237,28 @@ async function initAdminData() {
         desktopToggleText.innerText = isCollapsed ? 'Lebarkan' : 'Ciutkan';
     });
 
-
     document.getElementById('loading-admin').classList.add('hidden');
     renderCurrentTab();
 }
 
 async function fetchData() {
     ALL_DATA = await getSemuaPeserta();
+}
+
+// [BARU] FUNGSI MEMORI SAKTI: Merakit Link WA secara Synchronous (0 loading)
+function buatLinkWA(templateKey, participantData) {
+    let template = CONFIG[templateKey] || '';
+    if (!template) return '#';
+    
+    let message = template.replace(/\\n/g, '\n');
+    message = message.replace(/{{nama_lengkap}}/g, participantData.nama_lengkap || '');
+    message = message.replace(/{{jadwal_hari}}/g, participantData.jadwal_hari || '');
+    message = message.replace(/{{jadwal_sesi}}/g, participantData.jadwal_sesi || '');
+    message = message.replace(/{{psikolog_bertugas}}/g, participantData.psikolog_bertugas || 'Psikolog');
+    message = message.replace(/{{feedback_url}}/g, `https://bit.ly/FeedbackKonselingKarierTKTApril2026`);
+
+    const waNumber = participantData.nomor_wa.startsWith('0') ? '62' + participantData.nomor_wa.substring(1) : participantData.nomor_wa;
+    return `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`;
 }
 
 function switchTab(tabName, btnElement) {
@@ -243,25 +287,24 @@ function switchTab(tabName, btnElement) {
 
 function renderCurrentTab() {
     const container = document.getElementById('admin-content');
+    // Karena kita tidak butuh nunggu API di setiap tab lagi, kita bisa langsung render!
     if (CURRENT_TAB === 'analytics') renderAnalyticsView(container);
     else if (CURRENT_TAB === 'board') renderBoardView(container);
     else if (CURRENT_TAB === 'table') renderTableView(container);
 }
 
 // ==========================================================
-// 1. ANALYTICS VIEW (Dashboard Statistik)
+// 1. ANALYTICS VIEW
 // ==========================================================
 function renderAnalyticsView(container) {
     const total = ALL_DATA.length;
     const countHadirSelesai = ALL_DATA.filter(p => ['HADIR', 'SELESAI_FULL'].includes(p.status_peserta)).length;
     const countConfirmed = ALL_DATA.filter(p => p.status_peserta === 'CONFIRMED').length;
     const countWaiting = ALL_DATA.filter(p => p.status_peserta === 'WAITING_LIST').length;
-    const countBatal = ALL_DATA.filter(p => p.status_peserta === 'BATAL').length;
     
-    // Demografi
-    const countITB = ALL_DATA.filter(p => p.asal_univ.toLowerCase().includes('institut teknologi bandung')).length;
+    const countITB = ALL_DATA.filter(p => (p.asal_univ || '').toLowerCase().includes('institut teknologi bandung')).length;
     const pctITB = total === 0 ? 0 : Math.round((countITB / total) * 100);
-    const countCV = ALL_DATA.filter(p => p.harapan_sesi.includes('CV Review')).length;
+    const countCV = ALL_DATA.filter(p => (p.harapan_sesi || '').includes('CV Review')).length;
     const pctCV = total === 0 ? 0 : Math.round((countCV / total) * 100);
 
     container.innerHTML = `
@@ -323,7 +366,7 @@ function renderAnalyticsView(container) {
 }
 
 // ==========================================================
-// 2. BOARD VIEW (Hierarki: Hari -> Psikolog -> Jam Sesi)
+// 2. BOARD VIEW (Dibuat Super Cepat)
 // ==========================================================
 async function renderBoardView(container) {
     const days = [...new Set(ALL_DATA.map(p => p.jadwal_hari))].filter(Boolean);
@@ -342,70 +385,68 @@ async function renderBoardView(container) {
                     <div class="space-y-8">`;
         
         let psikologListKey;
-        if (day === CONFIG.tanggal_kegiatan_1) {
-            psikologListKey = 'psikolog_list_1';
-        } else if (day === CONFIG.tanggal_kegiatan_2) {
-            psikologListKey = 'psikolog_list_2';
-        }
+        if (day === CONFIG.tanggal_kegiatan_1) psikologListKey = 'psikolog_list_1';
+        else if (day === CONFIG.tanggal_kegiatan_2) psikologListKey = 'psikolog_list_2';
+        
         const psikologListForDay = (psikologListKey && CONFIG[psikologListKey]) ? JSON.parse(CONFIG[psikologListKey]) : [];
-
-        let noPsikolog = 1; // [UPDATE] Variabel Penomoran Psikolog
+        let noPsikolog = 1;
 
         for (const namaPsikolog of psikologListForDay) {
-            
             html += `
                 <div class="bg-[#FDF8EE] rounded-2xl p-6 border border-brand-gold/20 shadow-sm relative overflow-hidden">
                     <div class="absolute left-0 top-0 w-2 h-full bg-brand-gold"></div>
                     <h3 class="font-bold text-brand-navy text-lg mb-4 flex items-center gap-2 pl-2">
                         <i class="ph ph-user-focus text-brand-gold text-2xl"></i> ${noPsikolog}. ${namaPsikolog}
                     </h3>
-                    
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             `;
-            
-            noPsikolog++; // [UPDATE] Increment nomor untuk psikolog berikutnya
+            noPsikolog++;
 
             for (const sesi of sesiList) {
-                // Cari peserta di Hari ini, Psikolog ini, dan Jam Sesi ini
-                let penghuni = ALL_DATA.find(p => p.jadwal_hari === day && p.psikolog_bertugas === namaPsikolog && p.jadwal_sesi === sesi && !['WAITING_LIST', 'BATAL'].includes(p.status_peserta));
+                // [DIUBAH] Gunakan .filter() untuk menangkap SEMUA peserta (Bisa lebih dari 1 orang)
+                let penghuniList = ALL_DATA.filter(p => p.jadwal_hari === day && p.psikolog_bertugas === namaPsikolog && p.jadwal_sesi === sesi && !['WAITING_LIST', 'BATAL'].includes(p.status_peserta));
 
-                if (penghuni) {
-                    let badgeColor = penghuni.status_peserta === 'CONFIRMED' ? 'text-green-700 bg-green-100 border-green-200' : 
-                                     ['HADIR', 'SELESAI_FULL'].includes(penghuni.status_peserta) ? 'text-brand-base bg-brand-navy border-brand-navy' : 
-                                     'text-brand-blue bg-blue-50 border-blue-200';
+                if (penghuniList.length > 0) {
+                    html += `<div class="flex flex-col gap-2 h-full">`; // Wrapper untuk tumpukan kartu
                     
-                    const waLink = await generateWhatsAppLink('wa_template_konfirmasi_sesi', penghuni) || '#';
+                    for (const penghuni of penghuniList) {
+                        let badgeColor = penghuni.status_peserta === 'CONFIRMED' ? 'text-green-700 bg-green-100 border-green-200' : 
+                                         ['HADIR', 'SELESAI_FULL'].includes(penghuni.status_peserta) ? 'text-brand-base bg-brand-navy border-brand-navy' : 
+                                         'text-brand-blue bg-blue-50 border-blue-200';
+                        
+                        const waLink = buatLinkWA('wa_template_konfirmasi_sesi', penghuni);
+                        let feedbackButtonHTML = '';
+                        if (penghuni.status_peserta === 'HADIR') {
+                            const feedbackWaLink = buatLinkWA('wa_template_minta_feedback', penghuni);
+                            feedbackButtonHTML = `
+                                <a href="${feedbackWaLink}" target="_blank" class="w-7 h-7 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-lg font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
+                                    <i class="ph ph-chat-centered-text text-sm"></i>
+                                </a>
+                            `;
+                        }
 
-                    let feedbackButtonHTML = '';
-                    if (penghuni.status_peserta === 'HADIR') {
-                        const feedbackWaLink = await generateWhatsAppLink('wa_template_minta_feedback', penghuni) || '#';
-                        feedbackButtonHTML = `
-                            <a href="${feedbackWaLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
-                                <i class="ph ph-chat-centered-text text-lg"></i>
-                            </a>
+                        html += `
+                            <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:border-brand-pink transition-colors group relative">
+                                <div>
+                                    <div class="flex justify-between items-start mb-2">
+                                        <span class="inline-block px-1.5 py-0.5 text-[9px] font-bold rounded border ${badgeColor}">${penghuni.status_peserta.replace('_', ' ')}</span>
+                                        <div class="flex items-center gap-1">
+                                            <a href="${waLink}" target="_blank" class="w-7 h-7 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold shadow-sm transition-transform hover:scale-105" title="Chat WA">
+                                                <i class="ph ph-whatsapp-logo text-sm"></i> 
+                                            </a>
+                                            ${feedbackButtonHTML}
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] font-bold text-gray-400 mb-0.5"><i class="ph ph-clock"></i> ${sesi}</p>
+                                    <p class="font-bold text-brand-navy text-xs leading-tight mb-1 truncate cursor-pointer hover:text-brand-pink" onclick="window.bukaDetail('${penghuni.id}')">${penghuni.nama_lengkap}</p>
+                                </div>
+                            </div>
                         `;
                     }
-
-                    html += `
-                        <div class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:border-brand-pink transition-colors group relative">
-                            <div>
-                                <div class="flex justify-between items-start mb-2">
-                                    <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border ${badgeColor}">${penghuni.status_peserta.replace('_', ' ')}</span>
-                                    <div class="flex items-center gap-1">
-                                        <a href="${waLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Chat WA">
-                                            <i class="ph ph-whatsapp-logo text-lg"></i> 
-                                        </a>
-                                        ${feedbackButtonHTML}
-                                    </div>
-                                </div>
-                                <p class="text-[11px] font-bold text-gray-400 mb-0.5"><i class="ph ph-clock"></i> ${sesi}</p>
-                                <p class="font-bold text-brand-navy text-sm leading-tight mb-1 truncate cursor-pointer hover:text-brand-pink" onclick="window.bukaDetail('${penghuni.id}')">${penghuni.nama_lengkap}</p>
-                            </div>
-                        </div>
-                    `;
+                    html += `</div>`; // Tutup Wrapper
                 } else {
                     html += `
-                        <div class="bg-white/50 p-3.5 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-center opacity-60">
+                        <div class="bg-white/50 p-3.5 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-center opacity-60 h-full">
                             <p class="text-[11px] font-bold text-gray-400 mb-1"><i class="ph ph-clock"></i> ${sesi}</p>
                             <p class="text-xs text-gray-500 font-medium">Slot Kosong</p>
                         </div>
@@ -421,7 +462,7 @@ async function renderBoardView(container) {
 }
 
 // ==========================================================
-// 3. MASTER TABLE VIEW (Sorting, Paging, Filter, Nomor Urut)
+// 3. MASTER TABLE VIEW
 // ==========================================================
 window.sortData = (column) => {
     if (sortCol === column) {
@@ -461,13 +502,13 @@ function renderTableView(container) {
                         <tr class="bg-brand-navy text-white text-xs uppercase tracking-wider select-none">
                             <th class="px-5 py-4 font-bold text-center w-12">No.</th>
                             <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group" onclick="window.sortData('nama_lengkap')">
-                                Nama Peserta <i class="ph ${sortCol === 'nama_lengkap' ? (sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'} text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
+                                Nama Peserta <i id="sort-icon-nama_lengkap" class="ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
                             </th>
                             <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group" onclick="window.sortData('jadwal_hari')">
-                                Jadwal & Psikolog <i class="ph ${sortCol === 'jadwal_hari' ? (sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'} text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
+                                Jadwal & Psikolog <i id="sort-icon-jadwal_hari" class="ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
                             </th>
                             <th class="px-6 py-4 font-bold cursor-pointer hover:text-brand-pink transition-colors group text-center" onclick="window.sortData('status_peserta')">
-                                Status <i class="ph ${sortCol === 'status_peserta' ? (sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'} text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
+                                Status <i id="sort-icon-status_peserta" class="ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block"></i>
                             </th>
                             <th class="px-6 py-4 font-bold text-center">Aksi Cepat</th>
                         </tr>
@@ -481,24 +522,31 @@ function renderTableView(container) {
         </div>
     `;
 
-    document.getElementById('search-input').addEventListener('input', (e) => { searchQuery = e.target.value; currentPage = 1; updateTableRows(); });
+    document.getElementById('search-input').addEventListener('input', (e) => { 
+        searchQuery = e.target.value; 
+        currentPage = 1; 
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => { updateTableRows(); }, 300); 
+    });
+
     document.getElementById('filter-status').addEventListener('change', (e) => { filterStatus = e.target.value; currentPage = 1; updateTableRows(); });
 
     updateTableRows();
 }
 
-async function updateTableRows() {
+function updateTableRows() {
     const tbody = document.getElementById('table-body');
     const pagination = document.getElementById('pagination-controls');
 
-    // 1. Filtering
+    const renderId = ++currentRenderId;
+
     let filteredData = ALL_DATA.filter(p => {
-        const matchSearch = p.nama_lengkap.toLowerCase().includes(searchQuery.toLowerCase());
+        const namaLengkap = p.nama_lengkap || '';
+        const matchSearch = namaLengkap.toLowerCase().includes(searchQuery.toLowerCase().trim());
         const matchStatus = filterStatus === 'ALL' || p.status_peserta === filterStatus;
         return matchSearch && matchStatus;
     });
 
-    // 2. Sorting
     filteredData.sort((a, b) => {
         let valA = a[sortCol] || '';
         let valB = b[sortCol] || '';
@@ -510,7 +558,6 @@ async function updateTableRows() {
         return 0;
     });
 
-    // 3. Paging
     const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
@@ -520,7 +567,9 @@ async function updateTableRows() {
         rowsHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-gray-400"><i class="ph ph-magnifying-glass text-4xl mb-2"></i><br>Data tidak ditemukan.</td></tr>`;
     } else {
         for (const [index, p] of paginatedData.entries()) {
-            const absoluteIndex = startIndex + index + 1; // Penomoran Akurat
+            if (renderId !== currentRenderId) return; 
+
+            const absoluteIndex = startIndex + index + 1;
 
             let badgeClass = 'bg-gray-100 text-gray-700';
             if (p.status_peserta === 'DAPAT_SESI') badgeClass = 'bg-blue-50 text-blue-700 border border-blue-200';
@@ -529,7 +578,8 @@ async function updateTableRows() {
             if (p.status_peserta === 'BATAL') badgeClass = 'bg-red-50 text-red-700 border border-red-200';
             if (['HADIR', 'SELESAI_FULL'].includes(p.status_peserta)) badgeClass = 'bg-brand-navy text-brand-base border border-brand-navy';
             
-            const waLink = await generateWhatsAppLink(p.status_peserta === 'WAITING_LIST' ? 'wa_template_waiting_list' : 'wa_template_konfirmasi_sesi', p) || '#'; 
+            // FUNGSI MEMORY LOKAL, NOL LOADING
+            const waLink = buatLinkWA(p.status_peserta === 'WAITING_LIST' ? 'wa_template_waiting_list' : 'wa_template_konfirmasi_sesi', p) || '#'; 
 
             rowsHTML += `
                 <tr class="hover:bg-brand-base/40 transition-colors group">
@@ -556,7 +606,7 @@ async function updateTableRows() {
 
                             <a href="${waLink}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Kirim WA"><i class="ph ph-whatsapp-logo text-lg"></i></a>
                             ${p.status_peserta === 'HADIR' ? `
-                                <a href="${await generateWhatsAppLink('wa_template_minta_feedback', p) || '#'}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
+                                <a href="${buatLinkWA('wa_template_minta_feedback', p) || '#'}" target="_blank" class="w-9 h-9 flex items-center justify-center bg-brand-blue hover:bg-brand-navy text-white rounded-xl font-bold shadow-sm transition-transform hover:scale-105" title="Minta Feedback">
                                     <i class="ph ph-chat-centered-text text-lg"></i>
                                 </a>
                             ` : ''}
@@ -573,6 +623,9 @@ async function updateTableRows() {
             `;
         }
     }
+    
+    if (renderId !== currentRenderId) return;
+
     tbody.innerHTML = rowsHTML;
 
     pagination.innerHTML = `
@@ -583,7 +636,14 @@ async function updateTableRows() {
         </div>
     `;
 
-    // Attach Status Selector Logic (Panggil API + Re-render)
+    ['nama_lengkap', 'jadwal_hari', 'status_peserta'].forEach(col => {
+        const icon = document.getElementById(`sort-icon-${col}`);
+        if (icon) {
+            if (sortCol === col) icon.className = `ph ${sortDir === 'asc' ? 'ph-caret-up' : 'ph-caret-down'} text-brand-pink ml-1 inline-block`;
+            else icon.className = `ph ph-caret-up-down text-gray-400 group-hover:text-brand-pink ml-1 inline-block`;
+        }
+    });
+
     document.querySelectorAll('.status-selector').forEach(sel => {
         sel.addEventListener('change', (e) => {
             const id = e.target.dataset.id;
@@ -607,7 +667,6 @@ async function showConfirmationModal(id, namaPeserta, statusBaru, hari, sesi, or
 
     messageEl.innerHTML = `Anda yakin ingin mengubah status <span class="font-bold text-brand-pink">${namaPeserta}</span> menjadi <span class="font-bold text-brand-gold">${statusBaru.replace('_', ' ')}</span>?`;
 
-    // Hapus event listener sebelumnya untuk mencegah duplikasi
     confirmBtn.replaceWith(confirmBtn.cloneNode(true));
     const newConfirmBtn = document.getElementById('confirm-status-yes');
 
@@ -618,18 +677,17 @@ async function showConfirmationModal(id, namaPeserta, statusBaru, hari, sesi, or
         
         const res = await updateStatusPesertaDenganAutoPromo(id, statusBaru, hari, sesi);
         if(res.success) {
-            if (res.dipromosikan) showToast(`Peserta [${res.dipromosikan}] berhasil dipromosikan!`, 'success');
-            else showToast(`Status berhasil diubah menjadi ${statusBaru}`, 'success');
-            await initAdminData(); // Refresh ALL DATA to update Analytics, Board, & Table simultaneously!
+            // Alert Auto Promo dihapus
+            showToast(`Status berhasil diubah menjadi ${statusBaru}`, 'success');
+            await initAdminData();
         } else {
             showToast("Gagal update status! Pastikan koneksi stabil.", 'error');
             selectElement.disabled = false;
-            selectElement.value = originalStatus; // Kembalikan ke status semula jika gagal
+            selectElement.value = originalStatus;
             document.getElementById('loading-admin').classList.add('hidden');
         }
     });
 
-    // Tampilkan modal
     modal.classList.remove('hidden');
     setTimeout(() => { modal.classList.remove('opacity-0'); card.classList.remove('scale-95'); }, 10);
 }
@@ -655,8 +713,7 @@ window.bukaModalReschedule = (id) => {
     const sesiList = ["09.00-09.45", "09.50-10.35", "10.40-11.25", "11.30-12.15", "13.15-14.00", "14.05-14.50", "14.55-15.40"];
     const days = [CONFIG.tanggal_kegiatan_1, CONFIG.tanggal_kegiatan_2].filter(Boolean);
     
-    let optionsHTML = '<option value="" disabled selected>Pilih Jadwal Baru yang Kosong...</option>';
-    let slotKetemu = false;
+    let optionsHTML = '<option value="" disabled selected>Pilih Jadwal & Psikolog Baru...</option>';
 
     days.forEach(day => {
         const psikologListKey = day === CONFIG.tanggal_kegiatan_1 ? 'psikolog_list_1' : 'psikolog_list_2';
@@ -669,24 +726,20 @@ window.bukaModalReschedule = (id) => {
                 ['DAPAT_SESI', 'CONFIRMED', 'HADIR', 'SELESAI_FULL'].includes(x.status_peserta)
             );
 
-            if (taken.length < psikologList.length) {
-                if (!(p.jadwal_hari === day && p.jadwal_sesi === sesi)) {
-                    const takenPsikologs = taken.map(t => t.psikolog_bertugas);
-                    const freePsikolog = psikologList.find(psi => !takenPsikologs.includes(psi));
+            // Tampilkan SEMUA psikolog di jam ini, terlepas kosong atau sudah penuh
+            psikologList.forEach(psi => {
+                // Sembunyikan opsi jika itu adalah slot yang sedang ditempati peserta itu sendiri saat ini
+                if (!(p.jadwal_hari === day && p.jadwal_sesi === sesi && p.psikolog_bertugas === psi)) {
                     
-                    if(freePsikolog) {
-                        const sisaSlot = psikologList.length - taken.length;
-                        optionsHTML += `<option value="${day}|${sesi}|${freePsikolog}">${day} - Pukul ${sesi} (Sisa ${sisaSlot} slot)</option>`;
-                        slotKetemu = true;
-                    }
+                    // Hitung ada berapa orang di bilik psikolog ini pada jam tersebut
+                    const countInSlot = taken.filter(t => t.psikolog_bertugas === psi).length;
+                    const statusText = countInSlot === 0 ? '🟢 Kosong' : `🔴 Terisi (${countInSlot} org)`;
+                    
+                    optionsHTML += `<option value="${day}|${sesi}|${psi}">${day} | Pukul ${sesi} | ${psi} - ${statusText}</option>`;
                 }
-            }
+            });
         });
     });
-
-    if (!slotKetemu) {
-        optionsHTML = '<option value="" disabled selected>Semua slot sudah penuh!</option>';
-    }
 
     document.getElementById('reschedule-select').innerHTML = optionsHTML;
 
@@ -723,9 +776,7 @@ window.submitReschedule = async () => {
     if (res.success) {
         window.tutupModalReschedule();
         showToast("Jadwal peserta berhasil dipindah!", "success");
-        if(res.dipromosikan) {
-            alert(`SISTEM AUTO-PROMO:\nKabar baik! Karena jadwal dipindah, anak Waiting List bernama [${res.dipromosikan}] otomatis naik untuk mengisi slot lama yang baru saja kosong.`);
-        }
+        // Alert Auto Promo dihapus
         await initAdminData(); 
     } else {
         showToast("Gagal memindah jadwal: " + res.message, "error");
@@ -808,8 +859,18 @@ function showToast(message, type = 'info') {
     if (!container) return;
 
     const toast = document.createElement('div');
-    const icon = type === 'success' ? 'ph-check-circle' : 'ph-x-circle';
-    const colors = type === 'success' ? 'bg-green-500 border-green-600' : 'bg-red-500 border-red-600';
+    
+    // Logika pewarnaan & ikon dinamis berdasarkan tipe Notifikasi
+    let icon = 'ph-info';
+    let colors = 'bg-blue-500 border-blue-600'; // Default untuk tipe 'info'
+    
+    if (type === 'success') {
+        icon = 'ph-check-circle';
+        colors = 'bg-green-500 border-green-600';
+    } else if (type === 'error') {
+        icon = 'ph-x-circle';
+        colors = 'bg-red-500 border-red-600';
+    }
 
     toast.className = `flex items-center gap-3 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg border ${colors} animate-fade-in-up`;
     toast.innerHTML = `<i class="ph ${icon} text-xl"></i><span>${message}</span>`;
